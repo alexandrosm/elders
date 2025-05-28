@@ -10,6 +10,7 @@ export interface ModelResponse {
   model: string;
   content?: string;
   error?: string;
+  citations?: UrlCitation[];
   meta?: {
     promptTokens?: number;
     completionTokens?: number;
@@ -25,6 +26,24 @@ export interface OpenRouterUsage {
   total_tokens: number;
 }
 
+export interface WebSearchOptions {
+  search_context_size?: 'low' | 'medium' | 'high';
+}
+
+export interface WebPlugin {
+  id: 'web';
+  max_results?: number;
+  search_prompt?: string;
+}
+
+export interface UrlCitation {
+  url: string;
+  title: string;
+  content?: string;
+  start_index: number;
+  end_index: number;
+}
+
 export interface OpenRouterResponse {
   id: string;
   model: string;
@@ -33,6 +52,10 @@ export interface OpenRouterResponse {
     message: {
       content: string | null;
       role: string;
+      annotations?: {
+        type: 'url_citation';
+        url_citation: UrlCitation;
+      }[];
     };
   }[];
   usage?: OpenRouterUsage;
@@ -120,7 +143,8 @@ export class OpenRouterClient {
     model: string,
     messages: OpenRouterMessage[],
     temperature: number = 0.7,
-    abortSignal?: AbortSignal
+    abortSignal?: AbortSignal,
+    webSearch?: boolean | WebPlugin | WebSearchOptions
   ): Promise<ModelResponse> {
     const startTime = Date.now();
     
@@ -135,12 +159,12 @@ export class OpenRouterClient {
             'HTTP-Referer': 'https://github.com/council-of-elders',
             'X-Title': 'Council of Elders'
           },
-          body: JSON.stringify({
+          body: JSON.stringify(this.buildRequestBody(
             model,
             messages,
             temperature,
-            stream: false
-          }),
+            webSearch
+          )),
           signal: abortSignal
         }
       );
@@ -175,6 +199,14 @@ export class OpenRouterClient {
         content
       };
 
+      // Add citations if available
+      const annotations = data.choices[0]?.message?.annotations;
+      if (annotations && annotations.length > 0) {
+        result.citations = annotations
+          .filter(a => a.type === 'url_citation')
+          .map(a => a.url_citation);
+      }
+
       // Add metadata if usage is available
       if (data.usage) {
         result.meta = {
@@ -200,10 +232,11 @@ export class OpenRouterClient {
     messages: OpenRouterMessage[],
     temperature: number = 0.7,
     abortSignal?: AbortSignal,
-    firstN?: number
+    firstN?: number,
+    webSearch?: boolean | WebPlugin | WebSearchOptions
   ): Promise<ModelResponse[]> {
     const promises = models.map(model => 
-      this.queryModel(model, messages, temperature, abortSignal)
+      this.queryModel(model, messages, temperature, abortSignal, webSearch)
     );
     
     if (firstN && firstN < models.length) {
@@ -284,7 +317,8 @@ export class OpenRouterClient {
     temperature: number = 0.7,
     onProgress?: (round: number, model: string, status: string) => void,
     abortSignal?: AbortSignal,
-    firstN?: number
+    firstN?: number,
+    webSearch?: boolean | WebPlugin | WebSearchOptions
   ): Promise<ModelResponse[][]> {
     const allResponses: ModelResponse[][] = [];
     
@@ -298,7 +332,7 @@ export class OpenRouterClient {
       models.forEach(model => onProgress(1, model, 'querying'));
     }
     
-    const round1Responses = await this.queryMultipleModels(models, initialMessages, temperature, abortSignal, firstN);
+    const round1Responses = await this.queryMultipleModels(models, initialMessages, temperature, abortSignal, firstN, webSearch);
     allResponses.push(round1Responses);
     
     if (onProgress) {
@@ -344,7 +378,7 @@ export class OpenRouterClient {
           onProgress(round, model, 'querying');
         }
         
-        const response = await this.queryModel(model, consensusMessages, temperature, abortSignal);
+        const response = await this.queryModel(model, consensusMessages, temperature, abortSignal, webSearch);
         
         if (onProgress) {
           onProgress(round, model, 'complete');
@@ -358,6 +392,35 @@ export class OpenRouterClient {
     }
     
     return allResponses;
+  }
+
+  private buildRequestBody(
+    model: string,
+    messages: OpenRouterMessage[],
+    temperature: number,
+    webSearch?: boolean | WebPlugin | WebSearchOptions
+  ): any {
+    const body: any = {
+      model,
+      messages,
+      temperature,
+      stream: false
+    };
+
+    if (webSearch === true) {
+      // Use :online suffix shortcut
+      body.model = `${model}:online`;
+    } else if (webSearch && typeof webSearch === 'object') {
+      if ('id' in webSearch) {
+        // It's a WebPlugin
+        body.plugins = [webSearch];
+      } else if ('search_context_size' in webSearch) {
+        // It's WebSearchOptions for native search
+        body.web_search_options = webSearch;
+      }
+    }
+
+    return body;
   }
 
   private buildConsensusPrompt(

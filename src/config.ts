@@ -28,6 +28,14 @@ export interface CouncilConfig {
     meta?: boolean;
     json?: boolean;
     firstN?: number;
+    web?: boolean;
+    webMaxResults?: number;
+    webContext?: 'low' | 'medium' | 'high';
+  };
+  webSearch?: {
+    enabled?: boolean;
+    maxResults?: number;
+    searchContext?: 'low' | 'medium' | 'high';
   };
 }
 
@@ -45,6 +53,9 @@ export interface UserDefaults {
   meta?: boolean;
   json?: boolean;
   export?: string;
+  web?: boolean;
+  webMaxResults?: number;
+  webContext?: 'low' | 'medium' | 'high';
 }
 
 export interface Config {

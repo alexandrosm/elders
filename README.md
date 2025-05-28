@@ -49,6 +49,9 @@ coe <prompt>
 - `-c, --council <name>` - Use a specific council configuration
 - `-n, --first-n <count>` - Only use the first N models to respond (race mode)
 - `-e, --export <format>` - Export conversation to file (markdown, json, txt)
+- `-w, --web` - Enable web search for all models
+- `--web-max-results <N>` - Maximum web search results (default: 5)
+- `--web-context <size>` - Web search context size for native search (low, medium, high)
 
 ### Examples
 ```bash
@@ -88,6 +91,12 @@ coe --rounds 2 --first-n 4 "Explain machine learning"
 coe --export markdown "What is the future of AI?"
 coe --council elite --rounds 2 --export json --meta "Analyze climate change solutions"
 coe --single --export txt "Explain quantum computing"
+
+# Web search - get real-time information
+coe --web "What are the latest developments in quantum computing?"
+coe --web --web-max-results 10 "Current AI regulations in the EU"
+coe --web --web-context high "Who won the latest Nobel prizes?"
+coe --council fast --web "What happened in tech news today?"
 
 # List available councils
 coe councils
@@ -223,6 +232,40 @@ By default, model identities are hidden and responses are attributed to "Elder A
 ## Synthesis Mode
 
 The `--single` flag enables synthesis mode, where all elder responses are combined into a single, unified answer. A designated synthesizer model reads all perspectives and provides a comprehensive response without mentioning the council or multiple sources. This is useful when you want a definitive answer rather than multiple viewpoints.
+
+## Web Search
+
+The `--web` flag enables real-time web search capabilities for all models, allowing them to access current information beyond their training data. This feature is powered by OpenRouter's web search integration.
+
+### How it Works
+- **Plugin-based search**: By default, uses the web plugin which adds search results to the model's context
+- **Native search**: Some models support native web search with `--web-context` option
+- **Citations**: Web sources are automatically extracted and displayed with responses
+
+### Configuration
+You can configure web search defaults in your council config:
+```json
+{
+  "councils": {
+    "research": {
+      "models": ["openai/gpt-4o", "anthropic/claude-3.5-sonnet"],
+      "webSearch": {
+        "enabled": true,
+        "maxResults": 10
+      },
+      "defaults": {
+        "web": true,
+        "webMaxResults": 10
+      }
+    }
+  }
+}
+```
+
+### Pricing
+Web search uses additional OpenRouter credits:
+- Plugin-based search: $4 per 1000 results (default 5 results = $0.02 per query)
+- Native search: Varies by model and context size (see OpenRouter docs)
 
 ## How Consensus Rounds Work
 

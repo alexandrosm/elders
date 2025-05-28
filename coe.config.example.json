@@ -83,7 +83,15 @@
       ],
       "system": "You are a research specialist. Provide accurate, well-sourced information with citations when possible.",
       "synthesizer": "google/gemini-2.5-pro-preview",
-      "rounds": 1
+      "rounds": 1,
+      "webSearch": {
+        "enabled": true,
+        "maxResults": 10
+      },
+      "defaults": {
+        "web": true,
+        "webMaxResults": 10
+      }
     }
   },
   "output": {

@@ -289,6 +289,9 @@ program
   .option('-c, --council <name>', 'Use a specific council configuration')
   .option('-n, --first-n <count>', 'Only use the first N models to respond', parseInt)
   .option('-e, --export <format>', 'Export conversation to file (markdown, json, txt)')
+  .option('-w, --web', 'Enable web search for all models')
+  .option('--web-max-results <N>', 'Maximum web search results (default: 5)', parseInt)
+  .option('--web-context <size>', 'Web search context size for native search (low, medium, high)')
   .action(async (promptParts: string[], options) => {
     // If no prompt provided, show help
     if (!promptParts || promptParts.length === 0) {
@@ -367,6 +370,34 @@ program
                        config.userDefaults?.temperature || 
                        0.7;
 
+    // Configure web search with defaults hierarchy
+    const webEnabled = options.web !== undefined ? options.web :
+                      councilDefaults.web !== undefined ? councilDefaults.web :
+                      config.userDefaults?.web !== undefined ? config.userDefaults.web :
+                      config.coeConfig.webSearch?.enabled || false;
+    
+    const webMaxResults = options.webMaxResults || 
+                         councilDefaults.webMaxResults || 
+                         config.userDefaults?.webMaxResults || 
+                         config.coeConfig.webSearch?.maxResults || 
+                         5;
+    
+    const webContext = options.webContext || 
+                      councilDefaults.webContext || 
+                      config.userDefaults?.webContext || 
+                      config.coeConfig.webSearch?.searchContext;
+    
+    let webSearch: boolean | any = undefined;
+    if (webEnabled) {
+      if (webContext) {
+        // Native web search
+        webSearch = { search_context_size: webContext };
+      } else {
+        // Plugin-based web search
+        webSearch = { id: 'web', max_results: webMaxResults };
+      }
+    }
+
     // Set up abort controller for graceful cancellation
     const abortController = new AbortController();
     process.on('SIGINT', () => {
@@ -399,7 +430,8 @@ program
           messages,
           temperature,
           abortController.signal,
-          firstN
+          firstN,
+          webSearch
         );
         spinner.stop();
         
@@ -418,7 +450,8 @@ program
           rounds,
           temperature,
           abortController.signal,
-          firstN
+          firstN,
+          webSearch
         );
         
         // Output final round responses
@@ -445,6 +478,7 @@ program
           console.log(JSON.stringify({
             answer: synthesisResponse.content || null,
             error: synthesisResponse.error || null,
+            ...(synthesisResponse.citations && synthesisResponse.citations.length > 0 ? { citations: synthesisResponse.citations } : {}),
             ...(showMeta && synthesisResponse.meta ? { meta: synthesisResponse.meta } : {})
           }, null, 2));
         } else {
@@ -452,6 +486,14 @@ program
             console.error(chalk.red(`Error: ${synthesisResponse.error}`));
           } else {
             console.log(synthesisResponse.content);
+            
+            // Display citations if available
+            if (synthesisResponse.citations && synthesisResponse.citations.length > 0) {
+              console.log(chalk.gray('\nSources:'));
+              synthesisResponse.citations.forEach((citation, i) => {
+                console.log(chalk.gray(`  ${i + 1}. ${citation.title} - ${citation.url}`));
+              });
+            }
           }
         }
       }
@@ -545,7 +587,8 @@ async function runConsensusRounds(
   rounds: number,
   temperature: number,
   abortSignal?: AbortSignal,
-  firstN?: number
+  firstN?: number,
+  webSearch?: boolean | any
 ): Promise<ModelResponse[][]> {
   const modelIds = config.models.map(m => getModelId(m));
   const globalSystem = config.system;
@@ -575,7 +618,8 @@ async function runConsensusRounds(
     temperature,
     onProgress,
     abortSignal,
-    firstN
+    firstN,
+    webSearch
   );
   
   return responses;
@@ -679,6 +723,7 @@ function outputResponses(
       ...(showModels ? { model: r.model } : {}),
       answer: r.content || null,
       error: r.error || null,
+      ...(r.citations && r.citations.length > 0 ? { citations: r.citations } : {}),
       ...(showMeta && r.meta ? { meta: r.meta } : {})
     }));
     console.log(JSON.stringify(output, null, 2));
@@ -695,6 +740,15 @@ function outputResponses(
         console.log(chalk.red(`\n❌ Error: ${response.error}\n`));
       } else {
         console.log('\n' + response.content + '\n');
+        
+        // Display citations if available
+        if (response.citations && response.citations.length > 0) {
+          console.log(chalk.gray('Sources:'));
+          response.citations.forEach((citation, i) => {
+            console.log(chalk.gray(`  ${i + 1}. ${citation.title} - ${citation.url}`));
+          });
+          console.log();
+        }
         
         if (showMeta && response.meta) {
           console.log(chalk.gray('Metadata:'));

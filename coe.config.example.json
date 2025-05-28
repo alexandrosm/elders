@@ -1,0 +1,94 @@
+{
+  "defaultCouncil": "balanced",
+  "councils": {
+    "elite": {
+      "models": [
+        "openai/gpt-4.1",
+        "anthropic/claude-opus-4",
+        "mistralai/mistral-medium-3",
+        "deepseek/deepseek-r1-0528",
+        "openai/o4-mini-high",
+        "x-ai/grok-3-beta",
+        "google/gemini-2.5-pro-preview"
+      ],
+      "system": "You are a distinguished member of the Elite Council. Provide thorough, nuanced analysis with expert-level insights.",
+      "synthesizer": "google/gemini-2.5-pro-preview",
+      "rounds": 2,
+      "defaults": {
+        "rounds": 2,
+        "single": true,
+        "temperature": 0.8
+      }
+    },
+    "fast": {
+      "models": [
+        "openai/gpt-4o-mini",
+        "anthropic/claude-3-haiku",
+        "mistralai/mistral-small"
+      ],
+      "system": "You are a member of the Fast Response Council. Provide quick, accurate answers.",
+      "synthesizer": "openai/gpt-4o-mini",
+      "rounds": 1,
+      "defaults": {
+        "rounds": 1,
+        "firstN": 2,
+        "temperature": 0.5
+      }
+    },
+    "free": {
+      "models": [
+        "google/gemini-2.0-flash-exp:free",
+        "deepseek/deepseek-r1:free",
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "mistralai/mistral-7b-instruct:free",
+        "nousresearch/hermes-3-llama-3.1-405b:free"
+      ],
+      "system": "You are a member of the Council. Provide helpful, clear guidance.",
+      "synthesizer": "google/gemini-2.0-flash-exp:free",
+      "rounds": 1
+    },
+    "balanced": {
+      "models": [
+        "openai/gpt-4o",
+        "anthropic/claude-3-5-sonnet",
+        "google/gemini-2.0-flash-exp:free",
+        "x-ai/grok-2-1212"
+      ],
+      "system": "You are a respected member of the Council of Elders. Provide clear, expert guidance.",
+      "synthesizer": "google/gemini-2.5-pro-preview",
+      "rounds": 1
+    },
+    "creative": {
+      "models": [
+        "anthropic/claude-3.5-sonnet",
+        "openai/gpt-4o",
+        "mistralai/mistral-large",
+        "cohere/command-r-plus"
+      ],
+      "system": "You are a creative visionary in the Council. Think outside the box and offer innovative perspectives.",
+      "synthesizer": "google/gemini-2.5-pro-preview",
+      "rounds": 2,
+      "output": {
+        "format": "text",
+        "showMeta": false,
+        "showModels": false
+      }
+    },
+    "research": {
+      "models": [
+        "perplexity/llama-3.1-sonar-large-128k-online",
+        "openai/gpt-4o",
+        "anthropic/claude-3.5-sonnet",
+        "deepseek/deepseek-r1"
+      ],
+      "system": "You are a research specialist. Provide accurate, well-sourced information with citations when possible.",
+      "synthesizer": "google/gemini-2.5-pro-preview",
+      "rounds": 1
+    }
+  },
+  "output": {
+    "format": "text",
+    "showMeta": false,
+    "showModels": false
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "models": [
+    "openai/gpt-4o-mini",
+    "anthropic/claude-3-haiku",
+    "google/gemini-2.0-flash-exp:free"
+  ],
+  "system": "You are a helpful assistant. Be concise.",
+  "synthesizer": "openai/gpt-4o-mini",
+  "rounds": 1
+}

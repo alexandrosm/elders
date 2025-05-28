@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+coe.config.json
+*.log
+.DS_Store
+coverage/
+.nyc_output/
+*.tgz
+EOF < /dev/null

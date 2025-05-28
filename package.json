@@ -1,0 +1,50 @@
+{
+  "name": "council-of-elders",
+  "version": "0.1.0",
+  "description": "Model Context Protocol (MCP) server and CLI that queries multiple LLMs through OpenRouter with consensus rounds",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "coe": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "cli": "node dist/cli.js",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage"
+  },
+  "keywords": [
+    "mcp",
+    "llm",
+    "openrouter",
+    "ai",
+    "council-of-elders",
+    "consensus"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@types/inquirer": "^9.0.8",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "inquirer": "^12.6.3",
+    "node-fetch": "^3.3.2",
+    "ora": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "eslint": "^8.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^1.0.0"
+  }
+}

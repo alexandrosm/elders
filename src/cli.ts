@@ -45,7 +45,7 @@ async function verifyMCPCompliance() {
 program
   .name('coe')
   .description('Council of Elders - Query multiple LLMs through OpenRouter\n\nExamples:\n  coe "What is the capital of France?"              # Query default council\n  coe --model gpt-4o "Explain quantum computing"     # Query single model\n  coe -c research "Latest AI developments"           # Use research council\n  coe --model perplexity/sonar-pro "Current news"   # Use premium Perplexity model')
-  .version('0.1.0');
+  .version('0.2.0');
 
 // Init command
 program

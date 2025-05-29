@@ -6,7 +6,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { OpenRouterClient, OpenRouterMessage } from './openrouter.js';
-import { loadConfig, getModelId } from './config.js';
+import { loadConfig, getModelId, defaultSystemPrompt } from './config.js';
 
 async function main() {
   const config = await loadConfig();
@@ -25,53 +25,85 @@ async function main() {
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: [
-        {
-          name: 'consult_elders',
-          description: 'Consult the Council of Elders - queries multiple LLMs for their wisdom on a given topic',
+    const tools: any[] = [
+      {
+        name: 'consult_elders',
+        description: 'Consult the Council of Elders - queries multiple LLMs for their wisdom on a given topic',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'The question or topic to ask the council',
+            },
+            models: {
+              type: 'array',
+              items: {
+                type: 'string',
+              },
+              description: 'Optional list of specific models to query. If not provided, uses default models.',
+            },
+            systemPrompt: {
+              type: 'string',
+              description: 'Optional system prompt to provide context to all models',
+            },
+            temperature: {
+              type: 'number',
+              description: 'Temperature for responses (0-1). Default is 0.7',
+              minimum: 0,
+              maximum: 1,
+            },
+            rounds: {
+              type: 'number',
+              description: 'Number of consensus rounds (default: 1)',
+              minimum: 1,
+            },
+          },
+          required: ['query'],
+        },
+      },
+    ];
+
+    // Add tools for each configured council
+    if (config.coeConfig.councils) {
+      for (const [councilName, councilConfig] of Object.entries(config.coeConfig.councils)) {
+        tools.push({
+          name: `consult_${councilName}_council`,
+          description: `Consult the ${councilName} council - ${councilConfig.system || 'queries specialized LLMs for their wisdom'}`,
           inputSchema: {
             type: 'object',
             properties: {
               query: {
                 type: 'string',
-                description: 'The question or topic to ask the council',
-              },
-              models: {
-                type: 'array',
-                items: {
-                  type: 'string',
-                },
-                description: 'Optional list of specific models to query. If not provided, uses default models.',
+                description: `The question or topic to ask the ${councilName} council`,
               },
               systemPrompt: {
                 type: 'string',
-                description: 'Optional system prompt to provide context to all models',
+                description: 'Optional system prompt to override the council\'s default prompt',
               },
               temperature: {
                 type: 'number',
-                description: 'Temperature for responses (0-1). Default is 0.7',
+                description: `Temperature for responses (0-1). Default is ${councilConfig.defaults?.temperature || 0.7}`,
                 minimum: 0,
                 maximum: 1,
               },
               rounds: {
                 type: 'number',
-                description: 'Number of consensus rounds (default: 1)',
+                description: `Number of consensus rounds (default: ${councilConfig.rounds || 1})`,
                 minimum: 1,
               },
             },
             required: ['query'],
           },
-        },
-      ],
-    };
+        });
+      }
+    }
+
+    return { tools };
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name !== 'consult_elders') {
-      throw new Error(`Unknown tool: ${request.params.name}`);
-    }
-
+    const toolName = request.params.name;
     const args = request.params.arguments as {
       query: string;
       models?: string[];
@@ -80,10 +112,34 @@ async function main() {
       rounds?: number;
     };
     const query = args.query;
-    const models = args.models || config.coeConfig.models.map(m => getModelId(m));
-    const systemPrompt = args.systemPrompt || config.coeConfig.system;
-    const temperature = args.temperature ?? 0.7;
-    const rounds = args.rounds || 1;
+    let models: string[];
+    let systemPrompt: string;
+    let temperature: number;
+    let rounds: number;
+
+    // Handle council-specific tools
+    let councilName: string | undefined;
+    if (toolName.startsWith('consult_') && toolName.endsWith('_council')) {
+      councilName = toolName.replace('consult_', '').replace('_council', '');
+      
+      if (!config.coeConfig.councils || !config.coeConfig.councils[councilName]) {
+        throw new Error(`Unknown council: ${councilName}`);
+      }
+      
+      const councilConfig = config.coeConfig.councils[councilName];
+      models = councilConfig.models.map(m => getModelId(m));
+      systemPrompt = args.systemPrompt || councilConfig.system || config.coeConfig.system || defaultSystemPrompt;
+      temperature = args.temperature ?? councilConfig.defaults?.temperature ?? 0.7;
+      rounds = args.rounds || councilConfig.rounds || 1;
+    } else if (toolName === 'consult_elders') {
+      // Handle the generic consult_elders tool
+      models = args.models || config.coeConfig.models.map(m => getModelId(m));
+      systemPrompt = args.systemPrompt || config.coeConfig.system || defaultSystemPrompt;
+      temperature = args.temperature ?? 0.7;
+      rounds = args.rounds || 1;
+    } else {
+      throw new Error(`Unknown tool: ${toolName}`);
+    }
 
     try {
       if (rounds === 1) {
@@ -106,11 +162,15 @@ async function main() {
           return `## ${resp.model}\n\n${resp.content}\n`;
         }).join('\n---\n\n');
 
+        const title = councilName 
+          ? `# ${councilName.charAt(0).toUpperCase() + councilName.slice(1)} Council Response`
+          : '# Council of Elders Response';
+        
         return {
           content: [
             {
               type: 'text',
-              text: `# Council of Elders Response\n\n${formattedResponses}`,
+              text: `${title}\n\n${formattedResponses}`,
             },
           ],
         };
@@ -132,11 +192,15 @@ async function main() {
           return `## ${resp.model}\n\n${resp.content}\n`;
         }).join('\n---\n\n');
 
+        const title = councilName 
+          ? `# ${councilName.charAt(0).toUpperCase() + councilName.slice(1)} Council Response (Round ${rounds})`
+          : `# Council of Elders Response (Round ${rounds})`;
+        
         return {
           content: [
             {
               type: 'text',
-              text: `# Council of Elders Response (Round ${rounds})\n\n${formattedResponses}`,
+              text: `${title}\n\n${formattedResponses}`,
             },
           ],
         };

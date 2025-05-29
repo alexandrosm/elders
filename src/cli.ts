@@ -44,7 +44,7 @@ async function verifyMCPCompliance() {
 
 program
   .name('coe')
-  .description('Council of Elders - Query multiple LLMs through OpenRouter')
+  .description('Council of Elders - Query multiple LLMs through OpenRouter\n\nExamples:\n  coe "What is the capital of France?"              # Query default council\n  coe --model gpt-4o "Explain quantum computing"     # Query single model\n  coe -c research "Latest AI developments"           # Use research council\n  coe --model perplexity/sonar-pro "Current news"   # Use premium Perplexity model')
   .version('0.1.0');
 
 // Init command
@@ -287,6 +287,7 @@ program
   .option('-t, --temperature <temp>', 'Temperature for responses (0-1)', parseFloat, 0.7)
   .option('-f, --files <paths...>', 'Files to append to the prompt')
   .option('-c, --council <name>', 'Use a specific council configuration')
+  .option('--model <model>', 'Query a single model instead of a council')
   .option('-n, --first-n <count>', 'Only use the first N models to respond', parseInt)
   .option('-e, --export <format>', 'Export conversation to file (markdown, json, txt)')
   .option('-w, --web', 'Enable web search for all models')
@@ -407,7 +408,23 @@ program
     });
 
     // Extract model IDs
-    const modelIds = config.coeConfig.models.map(m => getModelId(m));
+    let modelIds: string[];
+    let systemPrompt: string;
+    
+    if (options.model) {
+      // Single model mode
+      modelIds = [options.model];
+      systemPrompt = config.coeConfig.system || 'You are a helpful AI assistant.';
+      
+      // Validate incompatible options
+      if (options.firstN) {
+        console.warn(chalk.yellow('Warning: --first-n is ignored when using --model'));
+      }
+    } else {
+      // Council mode
+      modelIds = config.coeConfig.models.map(m => getModelId(m));
+      systemPrompt = config.coeConfig.system || 'You are a helpful AI assistant.';
+    }
     
     const client = new OpenRouterClient(config.openRouterApiKey);
 
@@ -416,10 +433,12 @@ program
     try {
       if (rounds === 1) {
         // Simple single-round query
-        const spinner = ora(`Consulting ${modelIds.length} elders${firstN ? ` (first ${firstN} to respond)` : ''}...`).start();
+        const spinnerText = options.model 
+          ? `Querying ${options.model}...`
+          : `Consulting ${modelIds.length} elders${firstN ? ` (first ${firstN} to respond)` : ''}...`;
+        const spinner = ora(spinnerText).start();
         
         // Build common messages with system prompt
-        const systemPrompt = config.coeConfig.system || 'You are a helpful AI assistant.';
         const messages: OpenRouterMessage[] = [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: prompt }
@@ -441,6 +460,12 @@ program
         }
       } else {
         // Multi-round consensus
+        if (options.model) {
+          console.error(chalk.red('Error: Multi-round consensus is not supported with --model option'));
+          console.error(chalk.yellow('Remove --rounds or use a council instead'));
+          process.exit(1);
+        }
+        
         console.log(chalk.bold.cyan(`\n🧙 Council of Elders - ${rounds} Rounds\n`));
         
         allResponses = await runConsensusRounds(
@@ -465,6 +490,12 @@ program
       // If synthesis requested, combine all responses
       let synthesisResponse: ModelResponse | undefined;
       if (synthesize) {
+        if (options.model) {
+          console.error(chalk.red('Error: Synthesis is not supported with --model option'));
+          console.error(chalk.yellow('Remove --single or use a council instead'));
+          process.exit(1);
+        }
+        
         synthesisResponse = await synthesizeResponses(
           client,
           config.coeConfig,

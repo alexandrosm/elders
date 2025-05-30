@@ -1,6 +1,6 @@
 {
   "name": "council-of-elders",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Model Context Protocol (MCP) server and CLI that queries multiple LLMs through OpenRouter with consensus rounds",
   "main": "dist/index.js",
   "type": "module",

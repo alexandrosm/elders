@@ -41,6 +41,8 @@
     "lodash-es": "^4.17.21",
     "node-fetch": "^3.3.2",
     "ora": "^8.1.0",
+    "reflect-metadata": "^0.2.2",
+    "tsyringe": "^4.10.0",
     "zod": "^3.25.36"
   },
   "devDependencies": {

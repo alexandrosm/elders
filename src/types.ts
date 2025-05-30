@@ -69,3 +69,39 @@ export interface PromptChoice {
   value?: string;
   hint?: string;
 }
+
+// Council types
+export type ModelConfig = string | { model: string; system?: string };
+
+export interface CouncilConfig {
+  models: ModelConfig[];
+  system?: string;
+  synthesizer?: string | { model: string; system?: string };
+  rounds?: number;
+  defaults?: {
+    temperature?: number;
+    firstN?: number;
+    single?: boolean;
+    web?: boolean;
+    webMaxResults?: number;
+    webContext?: 'low' | 'medium' | 'high';
+    json?: boolean;
+    meta?: boolean;
+    showModels?: boolean;
+    rounds?: number;
+  };
+}
+
+// Import ModelResponse from council-client to maintain consistency
+import { ModelResponse } from './council-client.js';
+
+export interface ConsensusResponse {
+  rounds: ModelResponse[][];
+  synthesis?: ModelResponse;
+  metadata?: {
+    totalCost: number;
+    totalTokens: number;
+    averageLatency: number;
+    modelCount: number;
+  };
+}

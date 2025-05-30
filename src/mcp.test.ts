@@ -1,9 +1,13 @@
-import { describe, it, expect, beforeAll } from 'vitest';
 import { spawn } from 'child_process';
 import path from 'path';
 
+import { describe, it, expect, beforeAll } from 'vitest';
+
+import type { MpcResponse } from './types.js';
+
 describe('MCP Server Integration Tests', () => {
   const serverPath = path.join(process.cwd(), 'dist/index.js');
+  const hasApiKey = !!process.env.OPENROUTER_API_KEY;
 
   beforeAll(async () => {
     // Ensure server is built
@@ -13,181 +17,197 @@ describe('MCP Server Integration Tests', () => {
     await execAsync('npm run build');
   });
 
-  it('should start MCP server and handle tool listing', async () => {
-    const server = spawn('node', [serverPath], {
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+  it.skipIf(!hasApiKey)(
+    'should start MCP server and handle tool listing',
+    async () => {
+      const server = spawn('node', [serverPath], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
 
-    let output = '';
-    let error = '';
+      let output = '';
+      let error = '';
 
-    server.stdout.on('data', (data) => {
-      output += data.toString();
-    });
+      server.stdout.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
 
-    server.stderr.on('data', (data) => {
-      error += data.toString();
-    });
+      server.stderr.on('data', (data: Buffer) => {
+        error += data.toString();
+      });
 
-    // Send list tools request
-    const listToolsRequest = {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'tools/list',
-      params: {}
-    };
+      // Send list tools request
+      const listToolsRequest = {
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/list',
+        params: {},
+      };
 
-    server.stdin.write(JSON.stringify(listToolsRequest) + '\n');
+      server.stdin.write(JSON.stringify(listToolsRequest) + '\n');
 
-    // Wait for response
-    await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait for response
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    expect(error).toContain('Council of Elders MCP server running');
-    
-    // Parse response
-    const lines = output.split('\n').filter(line => line.trim());
-    const response = JSON.parse(lines[0]);
-    
-    expect(response.jsonrpc).toBe('2.0');
-    expect(response.id).toBe(1);
-    expect(response.result.tools).toHaveLength(1);
-    expect(response.result.tools[0].name).toBe('consult_elders');
+      expect(error).toContain('Council of Elders MCP server running');
 
-    server.kill();
-  }, 10000);
+      // Parse response
+      const lines = output.split('\n').filter((line) => line.trim());
+      const response = JSON.parse(lines[0]) as MpcResponse;
 
-  it('should handle consult_elders tool call', async () => {
-    const server = spawn('node', [serverPath], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env }
-    });
+      expect(response.jsonrpc).toBe('2.0');
+      expect(response.id).toBe(1);
+      expect(response.result?.tools).toHaveLength(1);
+      expect(response.result?.tools?.[0].name).toBe('consult_elders');
 
-    let output = '';
+      server.kill();
+    },
+    10000
+  );
 
-    server.stdout.on('data', (data) => {
-      output += data.toString();
-    });
+  it.skipIf(!hasApiKey)(
+    'should handle consult_elders tool call',
+    async () => {
+      const server = spawn('node', [serverPath], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { ...process.env },
+      });
 
-    server.stderr.on('data', () => {
-      // Ignore stderr
-    });
+      let output = '';
 
-    // Wait for server to start
-    await new Promise(resolve => setTimeout(resolve, 500));
+      server.stdout.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
 
-    // Send tool call request
-    const toolCallRequest = {
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'tools/call',
-      params: {
-        name: 'consult_elders',
-        arguments: {
-          query: 'What is 2+2? Reply with just the number.',
-          models: ['openai/gpt-3.5-turbo'],
-          systemPrompt: 'You are a math helper. Be very brief.',
-          temperature: 0.1,
-          rounds: 1
-        }
-      }
-    };
+      server.stderr.on('data', () => {
+        // Ignore stderr
+      });
 
-    server.stdin.write(JSON.stringify(toolCallRequest) + '\n');
+      // Wait for server to start
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // Wait for response
-    await new Promise(resolve => setTimeout(resolve, 5000));
+      // Send tool call request
+      const toolCallRequest = {
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'consult_elders',
+          arguments: {
+            query: 'What is 2+2? Reply with just the number.',
+            models: ['openai/gpt-3.5-turbo'],
+            systemPrompt: 'You are a math helper. Be very brief.',
+            temperature: 0.1,
+            rounds: 1,
+          },
+        },
+      };
 
-    const lines = output.split('\n').filter(line => line.trim());
-    const response = JSON.parse(lines[lines.length - 1]);
-    
-    expect(response.jsonrpc).toBe('2.0');
-    expect(response.id).toBe(2);
-    expect(response.result.content).toBeDefined();
-    expect(response.result.content[0].type).toBe('text');
-    expect(response.result.content[0].text).toContain('4');
+      server.stdin.write(JSON.stringify(toolCallRequest) + '\n');
 
-    server.kill();
-  }, 30000);
+      // Wait for response
+      await new Promise((resolve) => setTimeout(resolve, 5000));
 
-  it('should handle multi-round consensus in MCP', async () => {
-    const server = spawn('node', [serverPath], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env }
-    });
+      const lines = output.split('\n').filter((line) => line.trim());
+      const response = JSON.parse(lines[lines.length - 1]) as MpcResponse;
 
-    let output = '';
+      expect(response.jsonrpc).toBe('2.0');
+      expect(response.id).toBe(2);
+      expect(response.result?.content).toBeDefined();
+      expect(response.result?.content?.[0].type).toBe('text');
+      expect(response.result?.content?.[0].text).toContain('4');
 
-    server.stdout.on('data', (data) => {
-      output += data.toString();
-    });
+      server.kill();
+    },
+    30000
+  );
 
-    // Wait for server to start
-    await new Promise(resolve => setTimeout(resolve, 500));
+  it.skipIf(!hasApiKey)(
+    'should handle multi-round consensus in MCP',
+    async () => {
+      const server = spawn('node', [serverPath], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { ...process.env },
+      });
 
-    const toolCallRequest = {
-      jsonrpc: '2.0',
-      id: 3,
-      method: 'tools/call',
-      params: {
-        name: 'consult_elders',
-        arguments: {
-          query: 'Is the sky blue? Yes or no only.',
-          models: ['openai/gpt-3.5-turbo', 'google/gemini-2.0-flash-exp:free'],
-          rounds: 2
-        }
-      }
-    };
+      let output = '';
 
-    server.stdin.write(JSON.stringify(toolCallRequest) + '\n');
+      server.stdout.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
 
-    // Wait for response (longer for 2 rounds)
-    await new Promise(resolve => setTimeout(resolve, 10000));
+      // Wait for server to start
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-    const lines = output.split('\n').filter(line => line.trim());
-    const response = JSON.parse(lines[lines.length - 1]);
-    
-    expect(response.result.content[0].text).toContain('Round 2');
-    expect(response.result.content[0].text.toLowerCase()).toMatch(/yes|no/);
+      const toolCallRequest = {
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: {
+          name: 'consult_elders',
+          arguments: {
+            query: 'Is the sky blue? Yes or no only.',
+            models: ['openai/gpt-3.5-turbo', 'google/gemini-2.0-flash-exp:free'],
+            rounds: 2,
+          },
+        },
+      };
 
-    server.kill();
-  }, 45000);
+      server.stdin.write(JSON.stringify(toolCallRequest) + '\n');
 
-  it('should handle errors gracefully in MCP', async () => {
-    const server = spawn('node', [serverPath], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env }
-    });
+      // Wait for response (longer for 2 rounds)
+      await new Promise((resolve) => setTimeout(resolve, 10000));
 
-    let output = '';
+      const lines = output.split('\n').filter((line) => line.trim());
+      const response = JSON.parse(lines[lines.length - 1]) as MpcResponse;
 
-    server.stdout.on('data', (data) => {
-      output += data.toString();
-    });
+      expect(response.result?.content?.[0].text).toContain('Round 2');
+      expect(response.result?.content?.[0].text.toLowerCase()).toMatch(/yes|no/);
 
-    // Wait for server to start
-    await new Promise(resolve => setTimeout(resolve, 500));
+      server.kill();
+    },
+    45000
+  );
 
-    // Call with invalid tool name
-    const invalidRequest = {
-      jsonrpc: '2.0',
-      id: 4,
-      method: 'tools/call',
-      params: {
-        name: 'invalid_tool',
-        arguments: {}
-      }
-    };
+  it.skipIf(!hasApiKey)(
+    'should handle errors gracefully in MCP',
+    async () => {
+      const server = spawn('node', [serverPath], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { ...process.env },
+      });
 
-    server.stdin.write(JSON.stringify(invalidRequest) + '\n');
+      let output = '';
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+      server.stdout.on('data', (data: Buffer) => {
+        output += data.toString();
+      });
 
-    const lines = output.split('\n').filter(line => line.trim());
-    const response = JSON.parse(lines[lines.length - 1]);
-    
-    expect(response.error).toBeDefined();
-    expect(response.error.message).toContain('Unknown tool');
+      // Wait for server to start
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-    server.kill();
-  }, 10000);
+      // Call with invalid tool name
+      const invalidRequest = {
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/call',
+        params: {
+          name: 'invalid_tool',
+          arguments: {},
+        },
+      };
+
+      server.stdin.write(JSON.stringify(invalidRequest) + '\n');
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const lines = output.split('\n').filter((line) => line.trim());
+      const response = JSON.parse(lines[lines.length - 1]) as MpcResponse;
+
+      expect(response.error).toBeDefined();
+      expect(response.error?.message).toContain('Unknown tool');
+
+      server.kill();
+    },
+    10000
+  );
 });

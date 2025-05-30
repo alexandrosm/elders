@@ -2,7 +2,7 @@ export class OpenRouterError extends Error {
   constructor(
     message: string,
     public statusCode?: number,
-    public response?: any,
+    public response?: unknown,
     public retryable: boolean = false
   ) {
     super(message);
@@ -11,14 +11,20 @@ export class OpenRouterError extends Error {
 }
 
 export class RateLimitError extends OpenRouterError {
-  constructor(message: string, public retryAfter?: number) {
+  constructor(
+    message: string,
+    public retryAfter?: number
+  ) {
     super(message, 429, undefined, true);
     this.name = 'RateLimitError';
   }
 }
 
 export class NetworkError extends OpenRouterError {
-  constructor(message: string, public cause?: Error) {
+  constructor(
+    message: string,
+    public cause?: Error
+  ) {
     super(message, undefined, undefined, true);
     this.name = 'NetworkError';
   }

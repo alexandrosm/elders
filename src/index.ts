@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-import { OpenRouterClient, OpenRouterMessage } from './openrouter.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+
 import { loadConfig, getModelId, defaultSystemPrompt } from './config.js';
+import { CouncilClient, QueryOptions, OpenRouterMessage } from './council-client.js';
 
 async function main() {
   const config = await loadConfig();
-  const openRouterClient = new OpenRouterClient(config.openRouterApiKey);
+  const councilClient = new CouncilClient({
+    apiKey: config.openRouterApiKey,
+  });
 
   const server = new Server(
     {
@@ -24,11 +24,17 @@ async function main() {
     }
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    const tools: any[] = [
+  server.setRequestHandler(ListToolsRequestSchema, () => {
+    interface Tool {
+      name: string;
+      description: string;
+      inputSchema: Record<string, unknown>;
+    }
+    const tools: Tool[] = [
       {
         name: 'consult_elders',
-        description: 'Consult the Council of Elders - queries multiple LLMs for their wisdom on a given topic',
+        description:
+          'Consult the Council of Elders - queries multiple LLMs for their wisdom on a given topic',
         inputSchema: {
           type: 'object',
           properties: {
@@ -41,7 +47,8 @@ async function main() {
               items: {
                 type: 'string',
               },
-              description: 'Optional list of specific models to query. If not provided, uses default models.',
+              description:
+                'Optional list of specific models to query. If not provided, uses default models.',
             },
             systemPrompt: {
               type: 'string',
@@ -79,7 +86,7 @@ async function main() {
               },
               systemPrompt: {
                 type: 'string',
-                description: 'Optional system prompt to override the council\'s default prompt',
+                description: "Optional system prompt to override the council's default prompt",
               },
               temperature: {
                 type: 'number',
@@ -121,19 +128,20 @@ async function main() {
     let councilName: string | undefined;
     if (toolName.startsWith('consult_') && toolName.endsWith('_council')) {
       councilName = toolName.replace('consult_', '').replace('_council', '');
-      
+
       if (!config.coeConfig.councils || !config.coeConfig.councils[councilName]) {
         throw new Error(`Unknown council: ${councilName}`);
       }
-      
+
       const councilConfig = config.coeConfig.councils[councilName];
-      models = councilConfig.models.map(m => getModelId(m));
-      systemPrompt = args.systemPrompt || councilConfig.system || config.coeConfig.system || defaultSystemPrompt;
+      models = councilConfig.models.map((m) => getModelId(m));
+      systemPrompt =
+        args.systemPrompt || councilConfig.system || config.coeConfig.system || defaultSystemPrompt;
       temperature = args.temperature ?? councilConfig.defaults?.temperature ?? 0.7;
       rounds = args.rounds || councilConfig.rounds || 1;
     } else if (toolName === 'consult_elders') {
       // Handle the generic consult_elders tool
-      models = args.models || config.coeConfig.models.map(m => getModelId(m));
+      models = args.models || config.coeConfig.models.map((m) => getModelId(m));
       systemPrompt = args.systemPrompt || config.coeConfig.system || defaultSystemPrompt;
       temperature = args.temperature ?? 0.7;
       rounds = args.rounds || 1;
@@ -146,26 +154,28 @@ async function main() {
         // Simple query
         const messages: OpenRouterMessage[] = [
           { role: 'system', content: systemPrompt || '' },
-          { role: 'user', content: query }
+          { role: 'user', content: query },
         ];
 
-        const responses = await openRouterClient.queryMultipleModels(
-          models,
-          messages,
-          temperature
-        );
+        const queryOptions: QueryOptions = {
+          temperature,
+        };
 
-        const formattedResponses = responses.map(resp => {
-          if (resp.error) {
-            return `## ${resp.model}\n\n**Error:** ${resp.error}\n`;
-          }
-          return `## ${resp.model}\n\n${resp.content}\n`;
-        }).join('\n---\n\n');
+        const responses = await councilClient.queryMultipleModels(models, messages, queryOptions);
 
-        const title = councilName 
+        const formattedResponses = responses
+          .map((resp) => {
+            if (resp.error) {
+              return `## ${resp.model}\n\n**Error:** ${resp.error}\n`;
+            }
+            return `## ${resp.model}\n\n${resp.content}\n`;
+          })
+          .join('\n---\n\n');
+
+        const title = councilName
           ? `# ${councilName.charAt(0).toUpperCase() + councilName.slice(1)} Council Response`
           : '# Council of Elders Response';
-        
+
         return {
           content: [
             {
@@ -176,26 +186,32 @@ async function main() {
         };
       } else {
         // Multi-round consensus
-        const allResponses = await openRouterClient.runConsensusRounds(
+        const queryOptions: QueryOptions = {
+          temperature,
+        };
+
+        const allResponses = await councilClient.runConsensusRounds(
           models,
           query,
           systemPrompt || '',
           rounds,
-          temperature
+          queryOptions
         );
 
         const finalResponses = allResponses[allResponses.length - 1];
-        const formattedResponses = finalResponses.map(resp => {
-          if (resp.error) {
-            return `## ${resp.model}\n\n**Error:** ${resp.error}\n`;
-          }
-          return `## ${resp.model}\n\n${resp.content}\n`;
-        }).join('\n---\n\n');
+        const formattedResponses = finalResponses
+          .map((resp) => {
+            if (resp.error) {
+              return `## ${resp.model}\n\n**Error:** ${resp.error}\n`;
+            }
+            return `## ${resp.model}\n\n${resp.content}\n`;
+          })
+          .join('\n---\n\n');
 
-        const title = councilName 
+        const title = councilName
           ? `# ${councilName.charAt(0).toUpperCase() + councilName.slice(1)} Council Response (Round ${rounds})`
           : `# Council of Elders Response (Round ${rounds})`;
-        
+
         return {
           content: [
             {

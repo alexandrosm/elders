@@ -1,68 +1,25 @@
-import dotenv from 'dotenv';
 import fs from 'fs/promises';
-import path from 'path';
 import { homedir } from 'os';
+import path from 'path';
+
+import * as dotenv from 'dotenv';
+import { z } from 'zod';
+
+import {
+  ModelConfig,
+  CouncilConfig,
+  CoeConfig,
+  UserDefaults,
+  Config,
+  CoeConfigSchema,
+  UserDefaultsSchema,
+  ConfigSchema,
+} from './config-schema.js';
 
 dotenv.config();
 
-export interface ModelConfig {
-  model: string;
-  system?: string;
-}
-
-export interface CouncilConfig {
-  models: (string | ModelConfig)[];
-  system?: string;
-  synthesizer?: string | ModelConfig;
-  output?: {
-    format?: 'text' | 'json';
-    showMeta?: boolean;
-    showModels?: boolean;
-  };
-  rounds?: number;
-  defaults?: {
-    rounds?: number;
-    single?: boolean;
-    temperature?: number;
-    showModels?: boolean;
-    meta?: boolean;
-    json?: boolean;
-    firstN?: number;
-    web?: boolean;
-    webMaxResults?: number;
-    webContext?: 'low' | 'medium' | 'high';
-  };
-  webSearch?: {
-    enabled?: boolean;
-    maxResults?: number;
-    searchContext?: 'low' | 'medium' | 'high';
-  };
-}
-
-export interface CoeConfig extends CouncilConfig {
-  councils?: Record<string, CouncilConfig>;
-  defaultCouncil?: string;
-}
-
-export interface UserDefaults {
-  defaultCouncil?: string;
-  temperature?: number;
-  rounds?: number;
-  single?: boolean;
-  showModels?: boolean;
-  meta?: boolean;
-  json?: boolean;
-  export?: string;
-  web?: boolean;
-  webMaxResults?: number;
-  webContext?: 'low' | 'medium' | 'high';
-}
-
-export interface Config {
-  openRouterApiKey: string;
-  coeConfig: CoeConfig;
-  userDefaults?: UserDefaults;
-}
+// Re-export types from schema
+export type { ModelConfig, CouncilConfig, CoeConfig, UserDefaults, Config };
 
 export const defaultModelList = [
   'x-ai/grok-2-1212',
@@ -70,10 +27,11 @@ export const defaultModelList = [
   'openai/gpt-4o',
   'anthropic/claude-3-5-sonnet',
   'deepseek/deepseek-r1',
-  'google/gemini-2.0-flash-exp:free'
+  'google/gemini-2.0-flash-exp:free',
 ];
 
-export const defaultSystemPrompt = 'You are a respected member of the Council of Elders. Provide clear, expert guidance.';
+export const defaultSystemPrompt =
+  'You are a respected member of the Council of Elders. Provide clear, expert guidance.';
 export const defaultSynthesizerModel = 'openai/gpt-4o-mini';
 
 async function loadUserDefaults(): Promise<UserDefaults | undefined> {
@@ -82,12 +40,14 @@ async function loadUserDefaults(): Promise<UserDefaults | undefined> {
     const localRcPath = path.join(process.cwd(), '.coerc');
     try {
       const content = await fs.readFile(localRcPath, 'utf-8');
-      return JSON.parse(content);
+      const parsed = JSON.parse(content) as unknown;
+      return UserDefaultsSchema.parse(parsed);
     } catch {
       // Try home directory
       const homeRcPath = path.join(homedir(), '.coerc');
       const content = await fs.readFile(homeRcPath, 'utf-8');
-      return JSON.parse(content);
+      const parsed = JSON.parse(content) as unknown;
+      return UserDefaultsSchema.parse(parsed);
     }
   } catch {
     return undefined;
@@ -96,97 +56,90 @@ async function loadUserDefaults(): Promise<UserDefaults | undefined> {
 
 export async function loadConfig(councilName?: string): Promise<Config> {
   const openRouterApiKey = process.env.OPENROUTER_API_KEY || '';
-  
+
   // Load user defaults from .coerc
   const userDefaults = await loadUserDefaults();
-  
+
   // Use council from parameter, user defaults, or config default
   const effectiveCouncilName = councilName || userDefaults?.defaultCouncil;
-  
-  // Try to load coe.config.json
-  let coeConfig: CoeConfig = {
+
+  // Default config
+  const defaultConfig: CoeConfig = {
     models: defaultModelList,
     system: defaultSystemPrompt,
     output: {
       format: 'text',
       showMeta: false,
-      showModels: false
+      showModels: false,
     },
-    rounds: 1
+    rounds: 1,
   };
-  
+
+  let coeConfig: CoeConfig;
+
   try {
     const configPath = path.join(process.cwd(), 'coe.config.json');
     const configContent = await fs.readFile(configPath, 'utf-8');
-    const parsedConfig = JSON.parse(configContent) as Partial<CoeConfig>;
-    
-    // If councils are defined and a specific council is requested
-    if (parsedConfig.councils && effectiveCouncilName) {
-      const councilConfig = parsedConfig.councils[effectiveCouncilName];
+    const parsedJson = JSON.parse(configContent) as unknown;
+
+    // Parse and validate with Zod
+    const validatedConfig = CoeConfigSchema.parse(parsedJson);
+
+    // If a specific council is requested
+    if (validatedConfig.councils && effectiveCouncilName) {
+      const councilConfig = validatedConfig.councils[effectiveCouncilName];
       if (!councilConfig) {
         throw new Error(`Council "${effectiveCouncilName}" not found in configuration`);
       }
-      
-      // Merge council config with base config
+
+      // Use the council config merged with base config defaults
       coeConfig = {
-        models: councilConfig.models || parsedConfig.models || defaultModelList,
-        system: councilConfig.system || parsedConfig.system || defaultSystemPrompt,
-        synthesizer: councilConfig.synthesizer || parsedConfig.synthesizer || defaultSynthesizerModel,
-        output: {
-          format: councilConfig.output?.format || parsedConfig.output?.format || 'text',
-          showMeta: councilConfig.output?.showMeta ?? parsedConfig.output?.showMeta ?? false,
-          showModels: councilConfig.output?.showModels ?? parsedConfig.output?.showModels ?? false
-        },
-        rounds: councilConfig.rounds || parsedConfig.rounds || 1,
-        councils: parsedConfig.councils,
-        defaultCouncil: parsedConfig.defaultCouncil
+        ...validatedConfig,
+        ...councilConfig,
+        councils: validatedConfig.councils,
+        defaultCouncil: validatedConfig.defaultCouncil,
       };
-    } else if (parsedConfig.councils && parsedConfig.defaultCouncil && !effectiveCouncilName) {
-      // Use default council if no council specified
-      const councilConfig = parsedConfig.councils[parsedConfig.defaultCouncil];
+    } else if (
+      validatedConfig.councils &&
+      validatedConfig.defaultCouncil &&
+      !effectiveCouncilName
+    ) {
+      // Use default council
+      const councilConfig = validatedConfig.councils[validatedConfig.defaultCouncil];
       if (councilConfig) {
         coeConfig = {
-          models: councilConfig.models || parsedConfig.models || defaultModelList,
-          system: councilConfig.system || parsedConfig.system || defaultSystemPrompt,
-          synthesizer: councilConfig.synthesizer || parsedConfig.synthesizer || defaultSynthesizerModel,
-          output: {
-            format: councilConfig.output?.format || parsedConfig.output?.format || 'text',
-            showMeta: councilConfig.output?.showMeta ?? parsedConfig.output?.showMeta ?? false,
-            showModels: councilConfig.output?.showModels ?? parsedConfig.output?.showModels ?? false
-          },
-          rounds: councilConfig.rounds || parsedConfig.rounds || 1,
-          councils: parsedConfig.councils,
-          defaultCouncil: parsedConfig.defaultCouncil
+          ...validatedConfig,
+          ...councilConfig,
+          councils: validatedConfig.councils,
+          defaultCouncil: validatedConfig.defaultCouncil,
         };
+      } else {
+        coeConfig = validatedConfig;
       }
     } else {
-      // Use base config (backward compatibility)
-      coeConfig = {
-        models: parsedConfig.models || defaultModelList,
-        system: parsedConfig.system || defaultSystemPrompt,
-        synthesizer: parsedConfig.synthesizer || defaultSynthesizerModel,
-        output: {
-          format: parsedConfig.output?.format || 'text',
-          showMeta: parsedConfig.output?.showMeta || false,
-          showModels: parsedConfig.output?.showModels || false
-        },
-        rounds: parsedConfig.rounds || 1,
-        councils: parsedConfig.councils,
-        defaultCouncil: parsedConfig.defaultCouncil
-      };
+      coeConfig = validatedConfig;
     }
   } catch (error) {
-    // coe.config.json doesn't exist or is invalid, use defaults
-    if (error instanceof Error && error.message.includes('Council')) {
-      throw error; // Re-throw council not found errors
+    if (error instanceof z.ZodError) {
+      throw new Error(
+        `Invalid configuration: ${error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+      );
     }
+    if (error instanceof Error && error.message.includes('Council')) {
+      throw error;
+    }
+    // Config file doesn't exist, use defaults
+    coeConfig = defaultConfig;
   }
 
-  return {
+  // Validate the complete config
+  const config: Config = {
     openRouterApiKey,
     coeConfig,
-    userDefaults
+    userDefaults,
   };
+
+  return ConfigSchema.parse(config);
 }
 
 export function getModelId(model: string | ModelConfig): string {

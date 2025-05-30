@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+
 import { getModelId, getSystemPrompt, defaultSystemPrompt } from './config.js';
 
 describe('Config utilities', () => {
@@ -22,7 +23,9 @@ describe('Config utilities', () => {
     });
 
     it('should return model-specific prompt', () => {
-      expect(getSystemPrompt({ model: 'claude-3', system: 'Custom prompt' }, 'Global')).toBe('Custom prompt');
+      expect(getSystemPrompt({ model: 'claude-3', system: 'Custom prompt' }, 'Global')).toBe(
+        'Custom prompt'
+      );
     });
   });
 });

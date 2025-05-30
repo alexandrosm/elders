@@ -5,6 +5,18 @@ All notable changes to Council of Elders (COE) will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Time Limit Filtering**: New `--time-limit <seconds>` parameter
+  - Automatically filters out models that respond slower than the specified limit
+  - Works with both single model queries (`--model`) and council queries
+  - In multi-round consensus, models are filtered per round
+  - Shows which models were filtered out for exceeding the time limit
+  - Configurable via CLI flag, council defaults, or user defaults (.coerc)
+  - Accepts values from 0.1 to 300 seconds
+  - Example: `coe "complex query" --time-limit 5` (only keeps models responding within 5 seconds)
+
 ## [0.3.0] - 2025-01-30
 
 ### Added

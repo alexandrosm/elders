@@ -82,7 +82,7 @@ export class VerifyCommand {
 
       // Check councils if present
       if (config.councils) {
-        for (const council of Object.values(config.councils)) {
+        for (const council of Object.values(config.councils as Record<string, any>)) {
           if (council.models) {
             collectModels(council.models);
           }

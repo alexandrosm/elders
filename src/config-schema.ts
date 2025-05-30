@@ -37,6 +37,7 @@ export const CouncilDefaultsSchema = z
     rounds: z.number().min(1).max(10).optional(),
     single: z.boolean().optional(),
     temperature: z.number().min(0).max(2).optional(),
+    timeLimit: z.number().min(0.1).max(300).optional(),
     showModels: z.boolean().optional(),
     meta: z.boolean().optional(),
     json: z.boolean().optional(),
@@ -88,6 +89,7 @@ export const UserDefaultsSchema = z.object({
   web: z.boolean().optional(),
   webMaxResults: z.number().min(1).max(50).optional(),
   webContext: z.enum(['low', 'medium', 'high']).optional(),
+  timeLimit: z.number().min(0.1).max(300).optional(),
 });
 
 // Complete config

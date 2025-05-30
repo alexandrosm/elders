@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import ora, { Ora } from 'ora';
 import { injectable, inject } from 'tsyringe';
+import chalk from 'chalk';
 
 import { getModelId } from '../config.js';
 import {
@@ -37,7 +38,15 @@ export class CouncilService implements ICouncilService {
       webSearch: this.buildWebSearchConfig(config),
     };
 
-    return this.client.queryMultipleModels(modelIds, messages, queryOptions);
+    const responses = await this.client.queryMultipleModels(modelIds, messages, queryOptions);
+    
+    // Filter by time limit if specified
+    if (config.defaults?.timeLimit) {
+      const timeLimitMs = config.defaults.timeLimit * 1000;
+      return this.filterByTimeLimit(responses, timeLimitMs);
+    }
+    
+    return responses;
   }
 
   async queryWithConsensus(prompt: string, config: CouncilConfig): Promise<ConsensusResponse> {
@@ -76,16 +85,34 @@ export class CouncilService implements ICouncilService {
       onProgress
     );
 
+    // Filter rounds by time limit if specified
+    let filteredRounds = allRounds;
+    if (config.defaults?.timeLimit) {
+      const timeLimitMs = config.defaults.timeLimit * 1000;
+      filteredRounds = allRounds.map(round => this.filterByTimeLimit(round, timeLimitMs));
+      
+      // Log filtered models
+      const filteredModels = new Set<string>();
+      allRounds.forEach((round, idx) => {
+        const filtered = round.filter(r => !filteredRounds[idx].some(fr => fr.model === r.model));
+        filtered.forEach(r => filteredModels.add(r.model));
+      });
+      
+      if (filteredModels.size > 0) {
+        console.log(chalk.yellow(`\nFiltered out slow models (>${config.defaults.timeLimit}s): ${[...filteredModels].join(', ')}\n`));
+      }
+    }
+
     // Synthesize if needed
     let synthesis: ModelResponse | undefined;
     if (config.defaults?.single) {
-      synthesis = await this.synthesizeResponses(prompt, allRounds, config);
+      synthesis = await this.synthesizeResponses(prompt, filteredRounds, config);
     }
 
     return {
-      rounds: allRounds,
+      rounds: filteredRounds,
       synthesis,
-      metadata: this.calculateMetadata(allRounds),
+      metadata: this.calculateMetadata(filteredRounds),
     };
   }
 
@@ -204,5 +231,16 @@ Original Question: "${originalPrompt}"
       averageLatency: responseCount > 0 ? totalLatency / responseCount : 0,
       modelCount: allRounds[0]?.length || 0,
     };
+  }
+
+  private filterByTimeLimit(responses: ModelResponse[], timeLimitMs: number): ModelResponse[] {
+    return responses.filter(response => {
+      // Keep responses that completed successfully within the time limit
+      if (!response.error && response.meta?.latencyMs) {
+        return response.meta.latencyMs <= timeLimitMs;
+      }
+      // Keep error responses (they didn't timeout, they failed for other reasons)
+      return true;
+    });
   }
 }

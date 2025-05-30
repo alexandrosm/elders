@@ -25,6 +25,7 @@ export interface CliOptions {
   web?: boolean;
   webMaxResults?: number;
   webContext?: 'low' | 'medium' | 'high';
+  timeLimit?: number;
 }
 
 export interface JsonResponse {
@@ -89,6 +90,7 @@ export interface CouncilConfig {
     meta?: boolean;
     showModels?: boolean;
     rounds?: number;
+    timeLimit?: number;
   };
 }
 

@@ -44,6 +44,11 @@ export class QueryCommand {
         '--web-context <size>',
         'Web search context size for native search (low, medium, high)'
       )
+      .option(
+        '--time-limit <seconds>',
+        'Time limit per model per round (filters out slower models)',
+        parseFloat
+      )
       .action(async (promptParts: string[], options: CliOptions) => {
         await this.execute(promptParts, options);
       });
@@ -93,6 +98,7 @@ export class QueryCommand {
         web: options.web !== undefined ? options.web : config.defaults?.web || false,
         webMaxResults: options.webMaxResults || config.defaults?.webMaxResults || 5,
         webContext: options.webContext || config.defaults?.webContext,
+        timeLimit: options.timeLimit || config.defaults?.timeLimit,
       },
     };
 
@@ -141,6 +147,7 @@ export class QueryCommand {
         web: options.web || false,
         webMaxResults: options.webMaxResults || 5,
         webContext: options.webContext,
+        timeLimit: options.timeLimit,
       },
     };
 

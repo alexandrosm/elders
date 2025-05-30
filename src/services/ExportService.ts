@@ -1,7 +1,6 @@
 import 'reflect-metadata';
-import { injectable } from 'tsyringe';
+import { injectable, inject, DependencyContainer } from 'tsyringe';
 
-import { container } from '../container.js';
 import { ModelResponse } from '../council-client.js';
 import { ExportFactory } from '../infrastructure/exporters/ExportFactory.js';
 import { ConsensusResponse } from '../types.js';
@@ -21,7 +20,7 @@ export interface ExportOptions {
 export class ExportService {
   private exportFactory: ExportFactory;
 
-  constructor() {
+  constructor(@inject('DependencyContainer') container: DependencyContainer) {
     // Create factory with container
     this.exportFactory = new ExportFactory(container);
   }

@@ -9,11 +9,13 @@ import { CouncilConfig } from '../types.js';
 export class ConfigService implements IConfigService {
   private config: CoeConfig | null = null;
   private apiKey: string | null = null;
+  private isLoaded = false;
 
   async loadConfig(councilName?: string): Promise<CouncilConfig> {
     const { coeConfig, openRouterApiKey } = await loadConfigOriginal(councilName);
     this.config = coeConfig;
     this.apiKey = openRouterApiKey;
+    this.isLoaded = true;
 
     if (councilName && coeConfig.councils?.[councilName]) {
       return {
@@ -46,22 +48,20 @@ export class ConfigService implements IConfigService {
   }
 
   getApiKey(): string {
-    if (!this.apiKey) {
-      throw new Error('API key not loaded. Call loadConfig first.');
-    }
-    return this.apiKey;
+    // Return empty string if not loaded yet - will be loaded when needed
+    return this.apiKey || '';
   }
 
   getDefaultCouncil(): string {
     if (!this.config) {
-      throw new Error('Config not loaded. Call loadConfig first.');
+      return 'default';
     }
     return this.config.defaultCouncil || 'default';
   }
 
   getAllCouncils(): string[] {
     if (!this.config) {
-      throw new Error('Config not loaded. Call loadConfig first.');
+      return [];
     }
     return Object.keys(this.config.councils || {});
   }

@@ -124,16 +124,34 @@ program
   });
 
 // Set up main query command using QueryCommand
-const queryCommand = container.resolve(QueryCommand);
-queryCommand.register(program);
+// Delay registration to avoid loading services during --help/--version
+let queryCommandRegistered = false;
+const registerQueryCommand = () => {
+  if (!queryCommandRegistered) {
+    const queryCommand = container.resolve(QueryCommand);
+    queryCommand.register(program);
+    queryCommandRegistered = true;
+  }
+};
 
 // Add hook to run MCP verification before the main query
 program.hook('preAction', async (thisCommand, actionCommand) => {
-  // Only verify MCP for the main query command (when no named command is used)
+  // Register query command only when needed
   if (actionCommand === program && thisCommand === program) {
+    registerQueryCommand();
     await verifyMCPCompliance();
   }
 });
+
+// Handle --version and --help without loading services
+const args = process.argv.slice(2);
+if (args.length === 0 || args.some((arg) => arg === '--help' || arg === '-h')) {
+  // Register query command to show its options in help
+  registerQueryCommand();
+} else if (!args.some((arg) => arg === '--version' || arg === '-V')) {
+  // Register for all other cases except --version
+  registerQueryCommand();
+}
 
 // Parse command line arguments
 program.parse(process.argv);

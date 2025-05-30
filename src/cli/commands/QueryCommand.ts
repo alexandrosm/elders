@@ -61,7 +61,17 @@ export class QueryCommand {
     }
 
     // Load configuration
-    const config = await this.configService.loadConfig(options.council);
+    let config;
+    try {
+      config = await this.configService.loadConfig(options.council);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('OpenRouter API key is required')) {
+        console.error(chalk.red('Error: Missing configuration'));
+        console.error(chalk.yellow('Please run "coe init" to configure'));
+        process.exit(1);
+      }
+      throw error;
+    }
 
     // Handle single model mode
     if (options.model) {

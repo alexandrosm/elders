@@ -9,13 +9,15 @@ import { injectable, inject } from 'tsyringe';
 
 import { ICouncilService, IConfigService } from '../../interfaces.js';
 import { ResponseBuilder } from '../../response-builder.js';
+import { ExportService } from '../../services/ExportService.js';
 import { CliOptions, CouncilConfig } from '../../types.js';
 
 @injectable()
 export class QueryCommand {
   constructor(
     @inject('ICouncilService') private councilService: ICouncilService,
-    @inject('IConfigService') private configService: IConfigService
+    @inject('IConfigService') private configService: IConfigService,
+    private exportService: ExportService
   ) {}
 
   register(program: Command): void {
@@ -155,7 +157,7 @@ export class QueryCommand {
 
       // Export if requested
       if (options.export) {
-        this.exportResults(prompt, responses, options, singleModelConfig);
+        await this.exportResults(prompt, responses, options, singleModelConfig);
       }
     } catch (error) {
       spinner.stop();
@@ -189,7 +191,7 @@ export class QueryCommand {
 
       // Export if requested
       if (options.export) {
-        this.exportResults(prompt, responses, options, config);
+        await this.exportResults(prompt, responses, options, config);
       }
     } catch (error) {
       spinner.stop();
@@ -239,7 +241,7 @@ export class QueryCommand {
 
       // Export if requested
       if (options.export) {
-        this.exportConsensusResults(prompt, result, options, config);
+        await this.exportConsensusResults(prompt, result, options, config);
       }
     } catch (error) {
       console.error(chalk.red('Error:'), error);
@@ -247,23 +249,41 @@ export class QueryCommand {
     }
   }
 
-  private exportResults(
-    _prompt: string,
-    _responses: unknown[],
-    _options: CliOptions,
-    _config: unknown
-  ): void {
-    // TODO: Implement export functionality
-    console.log(chalk.yellow('Export functionality will be implemented in ExportService'));
+  private async exportResults(
+    prompt: string,
+    responses: any[],
+    options: CliOptions,
+    config: any
+  ): Promise<void> {
+    if (!options.export) return;
+
+    await this.exportService.export(responses, {
+      format: options.export,
+      prompt,
+      council: options.council,
+      temperature: options.temperature,
+      showModels: options.showModels,
+      firstN: options.firstN,
+      synthesized: false,
+    });
   }
 
-  private exportConsensusResults(
-    _prompt: string,
-    _result: unknown,
-    _options: CliOptions,
-    _config: unknown
-  ): void {
-    // TODO: Implement export functionality
-    console.log(chalk.yellow('Export functionality will be implemented in ExportService'));
+  private async exportConsensusResults(
+    prompt: string,
+    result: any,
+    options: CliOptions,
+    config: any
+  ): Promise<void> {
+    if (!options.export) return;
+
+    await this.exportService.export(result, {
+      format: options.export,
+      prompt,
+      council: options.council,
+      temperature: options.temperature,
+      showModels: options.showModels,
+      firstN: options.firstN,
+      synthesized: config.defaults?.single || false,
+    });
   }
 }

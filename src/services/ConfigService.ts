@@ -1,21 +1,26 @@
 import 'reflect-metadata';
 import { injectable } from 'tsyringe';
 
-import { loadConfig as loadConfigOriginal, CoeConfig } from '../config.js';
+import { ConfigLoader } from '../config/ConfigLoader.js';
+import { Config } from '../config-schema.js';
 import { IConfigService } from '../interfaces.js';
 import { CouncilConfig } from '../types.js';
 
 @injectable()
 export class ConfigService implements IConfigService {
-  private config: CoeConfig | null = null;
-  private apiKey: string | null = null;
-  private isLoaded = false;
+  private configLoader: ConfigLoader;
+  private config: Config | null = null;
+
+  constructor() {
+    this.configLoader = new ConfigLoader();
+  }
 
   async loadConfig(councilName?: string): Promise<CouncilConfig> {
-    const { coeConfig, openRouterApiKey } = await loadConfigOriginal(councilName);
-    this.config = coeConfig;
-    this.apiKey = openRouterApiKey;
-    this.isLoaded = true;
+    if (!this.config) {
+      this.config = await this.configLoader.load();
+    }
+
+    const coeConfig = this.config.coeConfig;
 
     if (councilName && coeConfig.councils?.[councilName]) {
       return {
@@ -48,21 +53,23 @@ export class ConfigService implements IConfigService {
   }
 
   getApiKey(): string {
-    // Return empty string if not loaded yet - will be loaded when needed
-    return this.apiKey || '';
+    if (!this.config) {
+      return '';
+    }
+    return this.config.openRouterApiKey || '';
   }
 
   getDefaultCouncil(): string {
     if (!this.config) {
       return 'default';
     }
-    return this.config.defaultCouncil || 'default';
+    return this.config.coeConfig.defaultCouncil || 'default';
   }
 
   getAllCouncils(): string[] {
     if (!this.config) {
       return [];
     }
-    return Object.keys(this.config.councils || {});
+    return Object.keys(this.config.coeConfig.councils || {});
   }
 }

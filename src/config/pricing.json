@@ -1,0 +1,32 @@
+{
+  "defaultRate": 0.002,
+  "models": {
+    "gpt-4": 0.03,
+    "gpt-4o": 0.005,
+    "gpt-3.5": 0.0005,
+    "claude-3": 0.015,
+    "claude-3.5": 0.003,
+    "claude-3-5-sonnet": 0.003,
+    "llama-3": 0.0002,
+    "llama-3.1": 0.0002,
+    "gemini": 0.001,
+    "gemini-2": 0.001,
+    "mixtral": 0.0006,
+    "perplexity": 0.001,
+    "sonar": 0.001,
+    "deepseek": 0.0001,
+    "qwen": 0.0003,
+    "phi": 0.0001,
+    "grok": 0.005,
+    "x-ai": 0.005
+  },
+  "patterns": {
+    "free": 0,
+    "turbo": 0.0005,
+    "mini": 0.0002,
+    "small": 0.0003,
+    "large": 0.002,
+    "pro": 0.01,
+    "premium": 0.02
+  }
+}

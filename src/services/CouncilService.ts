@@ -9,14 +9,17 @@ import {
   ModelResponse,
   QueryOptions,
 } from '../council-client.js';
-import { ICouncilService, IConfigService } from '../interfaces.js';
+import { ICouncilService, IConfigService, IPricingService } from '../interfaces.js';
 import { CouncilConfig, ConsensusResponse } from '../types.js';
 
 @injectable()
 export class CouncilService implements ICouncilService {
   private client: CouncilClient;
 
-  constructor(@inject('IConfigService') private configService: IConfigService) {
+  constructor(
+    @inject('IConfigService') private configService: IConfigService,
+    @inject('IPricingService') private pricingService: IPricingService
+  ) {
     const apiKey = this.configService.getApiKey();
     this.client = new CouncilClient({ apiKey });
   }
@@ -178,7 +181,16 @@ Original Question: "${originalPrompt}"
     allRounds.forEach((round) => {
       round.forEach((response) => {
         if (response.meta) {
-          totalCost += response.meta.estimatedCost || 0;
+          // Use pricing service if estimated cost is not provided
+          if (response.meta.estimatedCost) {
+            totalCost += response.meta.estimatedCost;
+          } else if (response.meta.totalTokens) {
+            const cost = this.pricingService.calculate(response.model, {
+              totalTokens: response.meta.totalTokens,
+            });
+            totalCost += cost;
+          }
+
           totalTokens += response.meta.totalTokens || 0;
           totalLatency += response.meta.latencyMs || 0;
           responseCount++;

@@ -4,12 +4,12 @@ import chalk from 'chalk';
 import { Command } from 'commander';
 import fetch from 'node-fetch';
 
+import { CouncilsCommand } from './cli/commands/CouncilsCommand.js';
+import { InitCommand } from './cli/commands/InitCommand.js';
+import { ModelsCommand } from './cli/commands/ModelsCommand.js';
 import { QueryCommand } from './cli/commands/QueryCommand.js';
-import { loadConfig } from './config.js';
+import { VerifyCommand } from './cli/commands/VerifyCommand.js';
 import { container } from './container.js';
-import { runInitWizard } from './init-wizard-enhanced.js';
-import { ICouncilService } from './interfaces.js';
-import type { CliOptions, ExecError } from './types.js';
 
 const program = new Command();
 
@@ -38,93 +38,20 @@ program
   )
   .version('0.2.1');
 
-// Init command
-program
-  .command('init')
-  .description('Initialize configuration with interactive wizard')
-  .action(async () => {
-    try {
-      await runInitWizard();
-    } catch (error) {
-      const execError = error as ExecError;
-      if (execError?.exitCode === 2) {
-        // Special exit code to run sample query
-        process.argv = [process.argv[0], process.argv[1], 'Hello, Council of Elders!'];
-        program.parse(process.argv);
-      }
-    }
-  });
+// Register all commands
+const initCommand = container.resolve(InitCommand);
+initCommand.register(program);
 
-// List councils command
-program
-  .command('councils')
-  .description('List available councils')
-  .action(async () => {
-    try {
-      const config = await loadConfig();
+const councilsCommand = container.resolve(CouncilsCommand);
+councilsCommand.register(program);
 
-      if (!config.coeConfig.councils || Object.keys(config.coeConfig.councils).length === 0) {
-        console.log(chalk.yellow('No councils defined in configuration.'));
-        console.log(chalk.gray('Add councils to your coe.config.json file.'));
-        return;
-      }
+const modelsCommand = container.resolve(ModelsCommand);
+modelsCommand.register(program);
 
-      console.log(chalk.bold('Available Councils:'));
-      console.log(chalk.gray('─'.repeat(60)) + '\n');
+const verifyCommand = container.resolve(VerifyCommand);
+verifyCommand.register(program);
 
-      for (const [name, council] of Object.entries(config.coeConfig.councils)) {
-        const isDefault = name === config.coeConfig.defaultCouncil;
-        const modelCount = council.models.length;
-        const rounds = council.rounds || 1;
-
-        console.log(chalk.cyan(`${name}${isDefault ? ' (default)' : ''}`));
-        console.log(`  Models: ${modelCount}`);
-        console.log(`  Rounds: ${rounds}`);
-        if (council.system) {
-          console.log(`  System: ${council.system.substring(0, 50)}...`);
-        }
-        console.log();
-      }
-    } catch (error) {
-      console.error(chalk.red('Error loading configuration:'), error);
-    }
-  });
-
-// Models command
-program
-  .command('models')
-  .description('List available OpenRouter models')
-  .action(async () => {
-    try {
-      await loadConfig(); // Ensure config is loaded
-      const councilService = container.resolve<ICouncilService>('ICouncilService');
-
-      const models = await councilService.getAvailableModels();
-
-      console.log(chalk.bold(`Available OpenRouter Models (${models.length}):`));
-      console.log(chalk.gray('─'.repeat(60)) + '\n');
-
-      models.forEach((model) => {
-        console.log(`  ${model}`);
-      });
-    } catch (error) {
-      console.error(chalk.red('Error fetching models:'), error);
-    }
-  });
-
-// Verify command - keeping simple for now
-program
-  .command('verify')
-  .description('Verify configuration and model availability')
-  .option('-f, --fix', 'Show suggestions for fixing invalid models')
-  .option('-i, --interactive', 'Interactive mode for fixing issues')
-  .action((_options: CliOptions) => {
-    // TODO: Implement verify command
-    console.log(chalk.yellow('Verify command will be refactored in a future update'));
-  });
-
-// Set up main query command using QueryCommand
-// Delay registration to avoid loading services during --help/--version
+// Set up main query command - delay to avoid loading services during --help/--version
 let queryCommandRegistered = false;
 const registerQueryCommand = () => {
   if (!queryCommandRegistered) {

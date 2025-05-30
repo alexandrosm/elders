@@ -2,7 +2,11 @@
 import 'reflect-metadata';
 import chalk from 'chalk';
 import { Command } from 'commander';
+import { config as loadEnv } from 'dotenv';
 import fetch from 'node-fetch';
+
+// Load environment variables from .env file
+loadEnv();
 
 import { CouncilsCommand } from './cli/commands/CouncilsCommand.js';
 import { InitCommand } from './cli/commands/InitCommand.js';
@@ -24,7 +28,7 @@ async function verifyMCPCompliance() {
     const mcpModels = await response.text();
     // Simple check - just warn if the file exists and is readable
     if (mcpModels.length > 0) {
-      console.log(chalk.gray('✓ MCP compliance check passed'));
+      console.error(chalk.gray('✓ MCP compliance check passed'));
     }
   } catch (error) {
     console.warn(chalk.yellow('⚠️  Warning: Could not verify MCP compliance'));
@@ -36,7 +40,7 @@ program
   .description(
     'Council of Elders - Query multiple LLMs through OpenRouter\n\nExamples:\n  coe "What is the capital of France?"              # Query default council\n  coe --model gpt-4o "Explain quantum computing"     # Query single model\n  coe -c research "Latest AI developments"           # Use research council\n  coe --model perplexity/sonar-pro "Current news"   # Use premium Perplexity model'
   )
-  .version('0.2.1');
+  .version('0.3.1');
 
 // Register all commands
 const initCommand = container.resolve(InitCommand);

@@ -1,0 +1,5 @@
+{
+  "models": ["google/gemini-2.0-flash-exp:free", "openai/gpt-4o-mini"],
+  "system": "You are an alternative config test. Always mention you're from the alt config.",
+  "rounds": 1
+}

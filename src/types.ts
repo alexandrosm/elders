@@ -26,42 +26,7 @@ export interface CliOptions {
   webMaxResults?: number;
   webContext?: 'low' | 'medium' | 'high';
   timeLimit?: number;
-}
-
-export interface JsonResponse {
-  model: string;
-  answer: string | null;
-  error: string | null;
-  elder?: string;
-  meta?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-    latencyMs: number;
-    estimatedCost: number;
-  };
-  citations?: Array<{
-    url: string;
-    title: string;
-  }>;
-}
-
-export interface MpcResponse {
-  jsonrpc: string;
-  id: number;
-  result?: {
-    tools?: Array<{
-      name: string;
-      description: string;
-    }>;
-    content?: Array<{
-      type: string;
-      text: string;
-    }>;
-  };
-  error?: {
-    message: string;
-  };
+  config?: string;
 }
 
 export interface PromptChoice {

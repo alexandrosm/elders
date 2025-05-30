@@ -16,10 +16,11 @@ export class ModelsCommand {
     program
       .command('models')
       .description('List available OpenRouter models')
-      .action(async () => {
+      .option('--config <path>', 'Path to config file (overrides default config discovery)')
+      .action(async (options: { config?: string }) => {
         try {
           // Ensure config is loaded
-          await this.configService.loadConfig();
+          await this.configService.loadConfig(undefined, options.config);
 
           const models = await this.councilService.getAvailableModels();
 

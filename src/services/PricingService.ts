@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { readFileSync } from 'fs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -24,7 +25,7 @@ export class PricingService implements IPricingService {
       // Try to load user-provided pricing first
       const userPricingPath = path.join(process.cwd(), 'pricing.json');
       const content = await fs.readFile(userPricingPath, 'utf-8');
-      this.pricing = JSON.parse(content);
+      this.pricing = JSON.parse(content) as PricingConfig;
     } catch {
       // Fall back to default pricing
       const __filename = fileURLToPath(import.meta.url);
@@ -33,7 +34,7 @@ export class PricingService implements IPricingService {
 
       try {
         const content = await fs.readFile(defaultPricingPath, 'utf-8');
-        this.pricing = JSON.parse(content);
+        this.pricing = JSON.parse(content) as PricingConfig;
       } catch {
         // If all else fails, use minimal defaults
         this.pricing = {
@@ -89,8 +90,8 @@ export class PricingService implements IPricingService {
     try {
       // Try to load user-provided pricing first
       const userPricingPath = path.join(process.cwd(), 'pricing.json');
-      const content = require('fs').readFileSync(userPricingPath, 'utf-8');
-      this.pricing = JSON.parse(content);
+      const content = readFileSync(userPricingPath, 'utf-8');
+      this.pricing = JSON.parse(content) as PricingConfig;
     } catch {
       // Fall back to default pricing
       const __filename = fileURLToPath(import.meta.url);
@@ -98,8 +99,8 @@ export class PricingService implements IPricingService {
       const defaultPricingPath = path.join(__dirname, '../config/pricing.json');
 
       try {
-        const content = require('fs').readFileSync(defaultPricingPath, 'utf-8');
-        this.pricing = JSON.parse(content);
+        const content = readFileSync(defaultPricingPath, 'utf-8');
+        this.pricing = JSON.parse(content) as PricingConfig;
       } catch {
         // If all else fails, use minimal defaults
         this.pricing = {

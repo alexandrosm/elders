@@ -1,7 +1,0 @@
-{
-  "defaultCouncil": "fast",
-  "temperature": 0.7,
-  "showModels": false,
-  "meta": false,
-  "export": "markdown"
-}

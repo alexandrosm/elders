@@ -8,7 +8,7 @@ export interface ICouncilService {
 }
 
 export interface IConfigService {
-  loadConfig(councilName?: string): Promise<CouncilConfig>;
+  loadConfig(councilName?: string, configPath?: string): Promise<CouncilConfig>;
   getApiKey(): string;
   getDefaultCouncil(): string;
   getAllCouncils(): string[];

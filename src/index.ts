@@ -15,7 +15,7 @@ async function main() {
   const server = new Server(
     {
       name: 'council-of-elders',
-      version: '0.2.0',
+      version: '0.3.1',
     },
     {
       capabilities: {

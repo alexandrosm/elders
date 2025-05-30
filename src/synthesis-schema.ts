@@ -29,23 +29,3 @@ export const SynthesisSchema = z.object({
 });
 
 export type Synthesis = z.infer<typeof SynthesisSchema>;
-
-// Schema for analysis output
-export const AnalysisSchema = z.object({
-  topic: z.string(),
-  sentiment: z.enum(['positive', 'negative', 'neutral', 'mixed']),
-  complexity: z.enum(['simple', 'moderate', 'complex', 'expert']),
-  categories: z.array(z.string()),
-  entities: z
-    .array(
-      z.object({
-        name: z.string(),
-        type: z.enum(['person', 'organization', 'location', 'concept', 'other']),
-        relevance: z.number().min(0).max(1),
-      })
-    )
-    .optional(),
-  suggestedFollowUp: z.array(z.string()).optional(),
-});
-
-export type Analysis = z.infer<typeof AnalysisSchema>;

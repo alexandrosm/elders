@@ -5,6 +5,40 @@ All notable changes to Council of Elders (COE) will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-01-30
+
+### Changed
+- **Code Quality**: Major cleanup and type safety improvements
+  - Fixed all 81 ESLint errors and warnings
+  - Removed unused code and dead files
+  - Added precise type annotations throughout
+  - Improved naming with descriptive parameter and function names
+- **Test Suite**: Simplified integration tests
+  - Removed tests for removed functionality (COE_CONFIG_PATH, test-specific configs)
+  - Tests now use default configuration as intended
+  - All unit tests passing
+
+### Fixed
+- Fixed type safety issues with dynamic imports
+- Fixed import order warnings
+- Removed unused variables and functions
+- Fixed configuration loading type annotations
+
+### Removed
+- **Test-specific configuration**: Removed COE_CONFIG_PATH environment variable support
+  - Tests now use the default configuration
+  - Simplified test setup and maintenance
+- **Unused code**: Removed dead code files
+  - Removed unused error classes from errors.ts
+  - Removed unused utility functions
+  - Removed unused type definitions (JsonResponse, MpcResponse moved to test files)
+
+### Technical Improvements
+- Reduced codebase to 4,024 lines across 30 TypeScript files
+- Improved TypeScript strict mode compliance
+- Better separation of test types from production types
+- Consistent use of named imports for better tree-shaking
+
 ## [Unreleased]
 
 ### Added
@@ -13,9 +47,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Works with both single model queries (`--model`) and council queries
   - In multi-round consensus, models are filtered per round
   - Shows which models were filtered out for exceeding the time limit
-  - Configurable via CLI flag, council defaults, or user defaults (.coerc)
+  - Configurable via CLI flag or council defaults
   - Accepts values from 0.1 to 300 seconds
   - Example: `coe "complex query" --time-limit 5` (only keeps models responding within 5 seconds)
+- **Config File Override**: New `--config <path>` option for all commands
+  - Allows specifying a custom config file path
+  - Useful for testing or using different configurations
+  - Example: `coe --config test.config.json "query"`
+
+### Changed
+- **Exit Code Handling**: CLI now exits with code 1 when all models fail
+- **Lazy Service Initialization**: CouncilService now initializes client lazily to ensure API key is loaded
+
+### Removed
+- **User Defaults (.coerc)**: Removed support for .coerc files
+  - Simplified configuration to use only coe.config.json
+  - All user preferences should now be in council defaults or CLI flags
+  - Reduces configuration complexity and potential conflicts
 
 ## [0.3.0] - 2025-01-30
 
@@ -32,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ExportService: Export functionality with strategy pattern
   - PricingService: Configurable model pricing
 - **Cosmiconfig Integration**: Flexible configuration loading
-  - Supports multiple file formats (.coerc, .coerc.json, .coerc.yaml, etc.)
+  - Supports multiple file formats (coe.config.json, coe.config.js, package.json)
   - Searches in standard locations (package.json, config directories)
   - Backward compatible with existing coe.config.json
 - **Export Strategy Pattern**: Modular export system
@@ -156,7 +204,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - JSON-based configuration with councils
   - Per-council system prompts and defaults
   - Model-specific system prompts
-  - User defaults via `.coerc` file
+  - Configuration via `coe.config.json` file
   
 - **Pre-configured Councils**:
   - Elite: Premium models for complex tasks
@@ -166,6 +214,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Creative: Models optimized for creative tasks
   - Research: Models with web search capabilities
 
+[0.3.1]: https://github.com/alexandrosm/elders/releases/tag/v0.3.1
 [0.3.0]: https://github.com/alexandrosm/elders/releases/tag/v0.3.0
 [0.2.1]: https://github.com/alexandrosm/elders/releases/tag/v0.2.1
 [0.2.0]: https://github.com/alexandrosm/elders/releases/tag/v0.2.0

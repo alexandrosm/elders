@@ -112,8 +112,7 @@ coe verify --council elite  # Verify a specific council
 With properly configured defaults, you can use the tool with minimal typing:
 
 ```bash
-# If .coerc has defaultCouncil: "fast"
-coe "What is the capital of France?"  # Uses fast council automatically
+coe "What is the capital of France?"  # Uses default council
 
 # Elite council has defaults: rounds=2, single=true
 coe --council elite "Explain consciousness"  # Automatically 2 rounds + synthesis
@@ -133,26 +132,11 @@ The tool uses a flexible configuration hierarchy:
 
 1. **CLI flags** (highest priority) - Command line options override everything
 2. **Council defaults** - Per-council default CLI parameters
-3. **User defaults** - Personal preferences in `.coerc` file
-4. **Config defaults** - Base configuration in `coe.config.json`
+3. **Config defaults** - Base configuration in `coe.config.json`
 
 ### `.env`
 ```env
 OPENROUTER_API_KEY=sk-or-...
-```
-
-### `.coerc` (User Defaults)
-
-Create a `.coerc` file in your project or home directory for personal defaults:
-
-```json
-{
-  "defaultCouncil": "fast",
-  "temperature": 0.7,
-  "showModels": false,
-  "single": true,
-  "export": "markdown"
-}
 ```
 
 ### `coe.config.json`

@@ -3,7 +3,6 @@ import { generateText, streamText, generateObject } from 'ai';
 import { z } from 'zod';
 
 import { SynthesisSchema } from './synthesis-schema.js';
-import { withRetry } from './utils.js';
 
 // Types moved from openrouter.ts
 export interface OpenRouterMessage {
@@ -62,6 +61,38 @@ export interface QueryOptions {
   firstN?: number;
 }
 
+/**
+ * Retry wrapper for async operations
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: {
+    retries?: number;
+    delay?: number;
+    backoff?: number;
+    onRetry?: (attempt: number, error: Error) => void;
+  } = {}
+): Promise<T> {
+  const { retries = 3, delay = 1000, backoff = 2, onRetry } = options;
+
+  let lastError: Error;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+
+      if (attempt < retries) {
+        const waitTime = delay * Math.pow(backoff, attempt);
+        onRetry?.(attempt + 1, lastError);
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
+      }
+    }
+  }
+
+  throw lastError!;
+}
+
 export class CouncilClient {
   private openrouter: ReturnType<typeof createOpenRouter>;
   private apiKey: string;
@@ -117,7 +148,7 @@ export class CouncilClient {
         {
           retries: 3,
           delay: 1000,
-          onRetry: (attempt) => console.log(`Retrying ${modelId} (attempt ${attempt})...`),
+          onRetry: (attempt) => console.error(`Retrying ${modelId} (attempt ${attempt})...`),
         }
       );
 

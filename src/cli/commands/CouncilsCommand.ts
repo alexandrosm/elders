@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { injectable, inject } from 'tsyringe';
 
 import { IConfigService } from '../../interfaces.js';
+import type { CouncilConfig } from '../../types.js';
 
 @injectable()
 export class CouncilsCommand {
@@ -13,10 +14,11 @@ export class CouncilsCommand {
     program
       .command('councils')
       .description('List available councils')
-      .action(async () => {
+      .option('--config <path>', 'Path to config file (overrides default config discovery)')
+      .action(async (options: { config?: string }) => {
         try {
           // Load config to ensure it's available
-          await this.configService.loadConfig();
+          await this.configService.loadConfig(undefined, options.config);
           const councils = this.getAllCouncils();
 
           if (Object.keys(councils).length === 0) {
@@ -31,15 +33,16 @@ export class CouncilsCommand {
           const defaultCouncil = this.configService.getDefaultCouncil();
 
           for (const [name, council] of Object.entries(councils)) {
+            const typedCouncil = council;
             const isDefault = name === defaultCouncil;
-            const modelCount = council.models?.length || 0;
-            const rounds = council.rounds || 1;
+            const modelCount = typedCouncil.models?.length || 0;
+            const rounds = typedCouncil.rounds || 1;
 
             console.log(chalk.cyan(`${name}${isDefault ? ' (default)' : ''}`));
             console.log(`  Models: ${modelCount}`);
             console.log(`  Rounds: ${rounds}`);
-            if (council.system) {
-              console.log(`  System: ${council.system.substring(0, 50)}...`);
+            if (typedCouncil.system) {
+              console.log(`  System: ${typedCouncil.system.substring(0, 50)}...`);
             }
             console.log();
           }
@@ -49,11 +52,15 @@ export class CouncilsCommand {
       });
   }
 
-  private getAllCouncils(): Record<string, any> {
+  private getAllCouncils(): Record<string, CouncilConfig> {
     // This is a workaround since we need access to the full config
     // In a future refactor, we should add a method to IConfigService to get all councils with details
     try {
-      const { coeConfig } = require('../../config.js').loadConfigSync();
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const configModule = require('../../config.js') as {
+        loadConfigSync: () => { coeConfig: { councils?: Record<string, CouncilConfig> } };
+      };
+      const { coeConfig } = configModule.loadConfigSync();
       return coeConfig.councils || {};
     } catch {
       return {};

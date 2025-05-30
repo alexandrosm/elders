@@ -1,7 +1,7 @@
 import 'reflect-metadata';
+import chalk from 'chalk';
 import ora, { Ora } from 'ora';
 import { injectable, inject } from 'tsyringe';
-import chalk from 'chalk';
 
 import { getModelId } from '../config.js';
 import {
@@ -15,14 +15,22 @@ import { CouncilConfig, ConsensusResponse } from '../types.js';
 
 @injectable()
 export class CouncilService implements ICouncilService {
-  private client: CouncilClient;
+  private client: CouncilClient | null = null;
 
   constructor(
     @inject('IConfigService') private configService: IConfigService,
     @inject('IPricingService') private pricingService: IPricingService
-  ) {
-    const apiKey = this.configService.getApiKey();
-    this.client = new CouncilClient({ apiKey });
+  ) {}
+
+  private getClient(): CouncilClient {
+    if (!this.client) {
+      const apiKey = this.configService.getApiKey();
+      if (!apiKey) {
+        throw new Error('OpenRouter API key is required but not configured');
+      }
+      this.client = new CouncilClient({ apiKey });
+    }
+    return this.client;
   }
 
   async query(prompt: string, config: CouncilConfig): Promise<ModelResponse[]> {
@@ -38,14 +46,14 @@ export class CouncilService implements ICouncilService {
       webSearch: this.buildWebSearchConfig(config),
     };
 
-    const responses = await this.client.queryMultipleModels(modelIds, messages, queryOptions);
-    
+    const responses = await this.getClient().queryMultipleModels(modelIds, messages, queryOptions);
+
     // Filter by time limit if specified
     if (config.defaults?.timeLimit) {
       const timeLimitMs = config.defaults.timeLimit * 1000;
       return this.filterByTimeLimit(responses, timeLimitMs);
     }
-    
+
     return responses;
   }
 
@@ -76,7 +84,7 @@ export class CouncilService implements ICouncilService {
       }
     };
 
-    const allRounds = await this.client.runConsensusRounds(
+    const allRounds = await this.getClient().runConsensusRounds(
       modelIds,
       prompt,
       config.system || '',
@@ -89,17 +97,23 @@ export class CouncilService implements ICouncilService {
     let filteredRounds = allRounds;
     if (config.defaults?.timeLimit) {
       const timeLimitMs = config.defaults.timeLimit * 1000;
-      filteredRounds = allRounds.map(round => this.filterByTimeLimit(round, timeLimitMs));
-      
+      filteredRounds = allRounds.map((round) => this.filterByTimeLimit(round, timeLimitMs));
+
       // Log filtered models
       const filteredModels = new Set<string>();
       allRounds.forEach((round, idx) => {
-        const filtered = round.filter(r => !filteredRounds[idx].some(fr => fr.model === r.model));
-        filtered.forEach(r => filteredModels.add(r.model));
+        const filtered = round.filter(
+          (r) => !filteredRounds[idx].some((fr) => fr.model === r.model)
+        );
+        filtered.forEach((r) => filteredModels.add(r.model));
       });
-      
+
       if (filteredModels.size > 0) {
-        console.log(chalk.yellow(`\nFiltered out slow models (>${config.defaults.timeLimit}s): ${[...filteredModels].join(', ')}\n`));
+        console.log(
+          chalk.yellow(
+            `\nFiltered out slow models (>${config.defaults.timeLimit}s): ${[...filteredModels].join(', ')}\n`
+          )
+        );
       }
     }
 
@@ -117,7 +131,7 @@ export class CouncilService implements ICouncilService {
   }
 
   async getAvailableModels(): Promise<string[]> {
-    const models = await this.client.getAvailableModels();
+    const models = await this.getClient().getAvailableModels();
     return models.map((m) => m.id);
   }
 
@@ -194,7 +208,7 @@ Original Question: "${originalPrompt}"
       { role: 'user', content: synthesisPrompt },
     ];
 
-    return this.client.queryModel(modelId, messages, {
+    return this.getClient().queryModel(modelId, messages, {
       temperature: config.defaults?.temperature || 0.7,
     });
   }
@@ -234,7 +248,7 @@ Original Question: "${originalPrompt}"
   }
 
   private filterByTimeLimit(responses: ModelResponse[], timeLimitMs: number): ModelResponse[] {
-    return responses.filter(response => {
+    return responses.filter((response) => {
       // Keep responses that completed successfully within the time limit
       if (!response.error && response.meta?.latencyMs) {
         return response.meta.latencyMs <= timeLimitMs;

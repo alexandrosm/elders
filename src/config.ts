@@ -1,5 +1,4 @@
 import fs from 'fs/promises';
-import { homedir } from 'os';
 import path from 'path';
 
 import * as dotenv from 'dotenv';
@@ -9,17 +8,15 @@ import {
   ModelConfig,
   CouncilConfig,
   CoeConfig,
-  UserDefaults,
   Config,
   CoeConfigSchema,
-  UserDefaultsSchema,
   ConfigSchema,
 } from './config-schema.js';
 
 dotenv.config();
 
 // Re-export types from schema
-export type { ModelConfig, CouncilConfig, CoeConfig, UserDefaults, Config };
+export type { ModelConfig, CouncilConfig, CoeConfig, Config };
 
 export const defaultModelList = [
   'x-ai/grok-2-1212',
@@ -34,34 +31,13 @@ export const defaultSystemPrompt =
   'You are a respected member of the Council of Elders. Provide clear, expert guidance.';
 export const defaultSynthesizerModel = 'openai/gpt-4o-mini';
 
-async function loadUserDefaults(): Promise<UserDefaults | undefined> {
-  try {
-    // Try .coerc in current directory first
-    const localRcPath = path.join(process.cwd(), '.coerc');
-    try {
-      const content = await fs.readFile(localRcPath, 'utf-8');
-      const parsed = JSON.parse(content) as unknown;
-      return UserDefaultsSchema.parse(parsed);
-    } catch {
-      // Try home directory
-      const homeRcPath = path.join(homedir(), '.coerc');
-      const content = await fs.readFile(homeRcPath, 'utf-8');
-      const parsed = JSON.parse(content) as unknown;
-      return UserDefaultsSchema.parse(parsed);
-    }
-  } catch {
-    return undefined;
-  }
-}
+// User defaults functionality removed - no longer using .coerc files
 
 export async function loadConfig(councilName?: string): Promise<Config> {
   const openRouterApiKey = process.env.OPENROUTER_API_KEY || '';
 
-  // Load user defaults from .coerc
-  const userDefaults = await loadUserDefaults();
-
-  // Use council from parameter, user defaults, or config default
-  const effectiveCouncilName = councilName || userDefaults?.defaultCouncil;
+  // Use council from parameter or config default
+  const effectiveCouncilName = councilName;
 
   // Default config
   const defaultConfig: CoeConfig = {
@@ -136,7 +112,6 @@ export async function loadConfig(councilName?: string): Promise<Config> {
   const config: Config = {
     openRouterApiKey,
     coeConfig,
-    userDefaults,
   };
 
   return ConfigSchema.parse(config);

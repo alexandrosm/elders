@@ -7,10 +7,11 @@ import { Command } from 'commander';
 import ora from 'ora';
 import { injectable, inject } from 'tsyringe';
 
+import { ModelResponse } from '../../council-client.js';
 import { ICouncilService, IConfigService } from '../../interfaces.js';
 import { ResponseBuilder } from '../../response-builder.js';
 import { ExportService } from '../../services/ExportService.js';
-import { CliOptions, CouncilConfig } from '../../types.js';
+import { CliOptions, CouncilConfig, ConsensusResponse } from '../../types.js';
 
 @injectable()
 export class QueryCommand {
@@ -49,6 +50,7 @@ export class QueryCommand {
         'Time limit per model per round (filters out slower models)',
         parseFloat
       )
+      .option('--config <path>', 'Path to config file (overrides default config discovery)')
       .action(async (promptParts: string[], options: CliOptions) => {
         await this.execute(promptParts, options);
       });
@@ -70,9 +72,13 @@ export class QueryCommand {
     // Load configuration
     let config;
     try {
-      config = await this.configService.loadConfig(options.council);
+      config = await this.configService.loadConfig(options.council, options.config);
     } catch (error) {
-      if (error instanceof Error && error.message.includes('OpenRouter API key is required')) {
+      if (
+        error instanceof Error &&
+        (error.message.includes('OpenRouter API key is required') ||
+          error.message.includes('No configuration file found'))
+      ) {
         console.error(chalk.red('Error: Missing configuration'));
         console.error(chalk.yellow('Please run "coe init" to configure'));
         process.exit(1);
@@ -162,9 +168,15 @@ export class QueryCommand {
       });
       console.log(builder.format(responses, 1));
 
+      // Check if the model failed and exit with error code (but not in JSON mode)
+      if (responses.length > 0 && responses[0].error && !options.json) {
+        console.error(chalk.red('Error: Model failed to respond'));
+        process.exit(1);
+      }
+
       // Export if requested
       if (options.export) {
-        await this.exportResults(prompt, responses, options, singleModelConfig);
+        await this.exportResults(prompt, responses, options);
       }
     } catch (error) {
       spinner.stop();
@@ -187,6 +199,9 @@ export class QueryCommand {
       const responses = await this.councilService.query(prompt, config);
       spinner.stop();
 
+      // Check if all models failed
+      const allFailed = responses.every((r) => r.error !== null && r.error !== undefined);
+
       if (!config.defaults?.single) {
         const builder = new ResponseBuilder({
           format: options.json ? 'json' : 'text',
@@ -196,9 +211,15 @@ export class QueryCommand {
         console.log(builder.format(responses, 1));
       }
 
+      // Exit with error code if all models failed (but not in JSON mode)
+      if (allFailed && !options.json) {
+        console.error(chalk.red('Error: All models failed to respond'));
+        process.exit(1);
+      }
+
       // Export if requested
       if (options.export) {
-        await this.exportResults(prompt, responses, options, config);
+        await this.exportResults(prompt, responses, options);
       }
     } catch (error) {
       spinner.stop();
@@ -258,9 +279,8 @@ export class QueryCommand {
 
   private async exportResults(
     prompt: string,
-    responses: any[],
-    options: CliOptions,
-    config: any
+    responses: ModelResponse[],
+    options: CliOptions
   ): Promise<void> {
     if (!options.export) return;
 
@@ -277,9 +297,9 @@ export class QueryCommand {
 
   private async exportConsensusResults(
     prompt: string,
-    result: any,
+    result: ConsensusResponse,
     options: CliOptions,
-    config: any
+    config: CouncilConfig
   ): Promise<void> {
     if (!options.export) return;
 

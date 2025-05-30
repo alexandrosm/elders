@@ -76,27 +76,12 @@ export const CoeConfigSchema = CouncilConfigSchema.extend({
   }
 );
 
-// User defaults
-export const UserDefaultsSchema = z.object({
-  defaultCouncil: z.string().optional(),
-  temperature: z.number().min(0).max(2).optional(),
-  rounds: z.number().min(1).max(10).optional(),
-  single: z.boolean().optional(),
-  showModels: z.boolean().optional(),
-  meta: z.boolean().optional(),
-  json: z.boolean().optional(),
-  export: z.string().optional(),
-  web: z.boolean().optional(),
-  webMaxResults: z.number().min(1).max(50).optional(),
-  webContext: z.enum(['low', 'medium', 'high']).optional(),
-  timeLimit: z.number().min(0.1).max(300).optional(),
-});
+// User defaults removed - no longer using .coerc files
 
 // Complete config
 export const ConfigSchema = z.object({
   openRouterApiKey: z.string().min(1, 'OpenRouter API key is required'),
   coeConfig: CoeConfigSchema,
-  userDefaults: UserDefaultsSchema.optional(),
 });
 
 // Export inferred types
@@ -106,5 +91,4 @@ export type WebSearchConfig = z.infer<typeof WebSearchConfigSchema>;
 export type CouncilDefaults = z.infer<typeof CouncilDefaultsSchema>;
 export type CouncilConfig = z.infer<typeof CouncilConfigSchema>;
 export type CoeConfig = z.infer<typeof CoeConfigSchema>;
-export type UserDefaults = z.infer<typeof UserDefaultsSchema>;
 export type Config = z.infer<typeof ConfigSchema>;

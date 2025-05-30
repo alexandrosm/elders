@@ -15,8 +15,11 @@ export class ConfigService implements IConfigService {
     this.configLoader = new ConfigLoader();
   }
 
-  async loadConfig(councilName?: string): Promise<CouncilConfig> {
-    if (!this.config) {
+  async loadConfig(councilName?: string, configPath?: string): Promise<CouncilConfig> {
+    // If config path is provided, always reload
+    if (configPath) {
+      this.config = await this.configLoader.load(configPath);
+    } else if (!this.config) {
       this.config = await this.configLoader.load();
     }
 

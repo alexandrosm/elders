@@ -28,23 +28,10 @@ export class ExportService {
   async export(data: ModelResponse[] | ConsensusResponse, options: ExportOptions): Promise<void> {
     const exporter = this.exportFactory.getExporter(options.format);
 
-    // Enhance the data with export options
-    const enhancedData = this.enhanceExportData(data, options);
-
-    await exporter.export(enhancedData, options.outputPath);
+    await exporter.export(data, options.outputPath);
   }
 
   getSupportedFormats(): string[] {
     return this.exportFactory.getSupportedFormats();
-  }
-
-  private enhanceExportData(
-    data: ModelResponse[] | ConsensusResponse,
-    options: ExportOptions
-  ): any {
-    // For now, just pass through the data
-    // In a future enhancement, we could modify the export interface
-    // to accept additional context
-    return data;
   }
 }
